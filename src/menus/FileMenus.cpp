@@ -150,34 +150,11 @@ void OnCompact(const CommandContext &context)
 {
    auto &project = context.project;
    auto &undoManager = UndoManager::Get(project);
+   auto &clipboard = Clipboard::Get();
    auto &projectFileIO = ProjectFileIO::Get(project);
 
-   auto before = wxFileName(projectFileIO.GetFileName()).GetSize() +
-                 wxFileName(projectFileIO.GetFileName() + wxT("-wal")).GetSize();
-
-   int id = AudacityMessageBox(
-      XO("Compacting this project will free up disk space by removing unused bytes within the file.\n\n"
-         "There is %s of free disk space and this project is currently using %s.\n\n"
-         "NOTE: If you proceed, the current Undo History and clipboard contents will be discarded.\n\n"
-         "Do you want to continue?")
-      .Format(Internat::FormatSize(projectFileIO.GetFreeDiskSpace()),
-              Internat::FormatSize(before.GetValue())),
-      XO("Compact Project"),
-      wxYES_NO);
-
-   if (id == wxNO)
-   {
-      return;
-   }
-
-   ProjectHistory::Get(project)
-      .PushState(XO("Compacted project file"), XO("Compact"), UndoPush::CONSOLIDATE);
-
-   auto numStates = undoManager.GetNumStates();
-   undoManager.RemoveStates(numStates - 1);
-
-   auto &clipboard = Clipboard::Get();
-   clipboard.Clear();
+   // Purpose of this is to remove the -wal file.
+   projectFileIO.ReopenProject();
 
    auto currentTracks = TrackList::Create( nullptr );
    auto &tracks = TrackList::Get( project );
@@ -186,15 +163,54 @@ void OnCompact(const CommandContext &context)
       currentTracks->Add(t->Duplicate());
    }
 
-   projectFileIO.Compact(currentTracks, true);
+   int64_t total = projectFileIO.GetTotalUsage();
+   int64_t used = projectFileIO.GetCurrentUsage(currentTracks);
 
-   auto after = wxFileName(projectFileIO.GetFileName()).GetSize() +
-                wxFileName(projectFileIO.GetFileName() + wxT("-wal")).GetSize();
+   auto before = wxFileName::GetSize(projectFileIO.GetFileName());
 
-   AudacityMessageBox(
-      XO("Compacting freed %s of disk space.")
-      .Format(Internat::FormatSize((before - after).GetValue())),
-      XO("Compact Project"));
+   int id = AudacityMessageBox(
+      XO("Compacting this project will free up disk space by removing unused bytes within the file.\n\n"
+         "There is %s of free disk space and this project is currently using %s.\n"
+         "\n"
+         "If you proceed, the current Undo History and clipboard contents will be discarded "
+         "and you will recover approximately %s of disk space.\n"
+         "\n"
+         "Do you want to continue?")
+      .Format(Internat::FormatSize(projectFileIO.GetFreeDiskSpace()),
+              Internat::FormatSize(before.GetValue()),
+              Internat::FormatSize(total - used)),
+      XO("Compact Project"),
+      wxYES_NO);
+
+   if (id == wxYES)
+   {
+      // Want to do this before removing the states so that it becomes the
+      // current state.
+      ProjectHistory::Get(project)
+         .PushState(XO("Compacted project file"), XO("Compact"), UndoPush::CONSOLIDATE);
+
+      // Now we can remove all previous states.
+      auto numStates = undoManager.GetNumStates();
+      undoManager.RemoveStates(numStates - 1);
+
+      // And clear the clipboard
+      clipboard.Clear();
+
+      // Refresh the before space usage since it may have changed due to the
+      // above actions.
+      auto before = wxFileName::GetSize(projectFileIO.GetFileName());
+
+      projectFileIO.Compact(currentTracks, true);
+
+      auto after = wxFileName::GetSize(projectFileIO.GetFileName());
+
+      AudacityMessageBox(
+         XO("Compacting actually freed %s of disk space.")
+         .Format(Internat::FormatSize((before - after).GetValue())),
+         XO("Compact Project"));
+   }
+
+   currentTracks.reset();
 }
 
 void OnSave(const CommandContext &context )

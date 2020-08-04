@@ -66,7 +66,7 @@ BEGIN_EVENT_TABLE(DirectoriesPrefs, PrefsPanel)
 END_EVENT_TABLE()
 
 DirectoriesPrefs::DirectoriesPrefs(wxWindow * parent, wxWindowID winid)
-/* i18n-hint:  Directories, also called folders, in computer file systems */
+/* i18n-hint:  Directories, also called directories, in computer file systems */
 :  PrefsPanel(parent, winid, XO("Directories")),
    mFreeSpace(NULL),
    mTempText(NULL)
@@ -113,8 +113,13 @@ void DirectoriesPrefs::PopulateOrExchange(ShuttleGui &S)
    S.SetBorder(2);
    S.StartScroller();
 
-   S.StartStatic(XO("Default folders"));
+   S.StartStatic(XO("Default directories"));
    {
+      S.AddSpace(1);
+      S.AddFixedText(XO("Leave a field empty to go to the last directory used for that operation. Fill in a field to "
+                        "always go to that directory for that operation."), false, 450);
+      S.AddSpace(5);
+
       S.StartMultiColumn(3, wxEXPAND);
       {
          S.SetStretchyCol(1);

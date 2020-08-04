@@ -43,6 +43,8 @@ undo memory so as to free up space.
 #include "ProjectFileIO.h"
 #include "ProjectHistory.h"
 #include "ShuttleGui.h"
+#include "widgets/AudacityMessageBox.h"
+#include "widgets/HelpSystem.h"
 
 enum {
    ID_AVAIL = 1000,
@@ -50,7 +52,8 @@ enum {
    ID_TOTAL,
    ID_LEVELS,
    ID_DISCARD,
-   ID_DISCARD_CLIPBOARD
+   ID_DISCARD_CLIPBOARD,
+   ID_COMPACT
 };
 
 BEGIN_EVENT_TABLE(HistoryDialog, wxDialogWrapper)
@@ -59,6 +62,8 @@ BEGIN_EVENT_TABLE(HistoryDialog, wxDialogWrapper)
    EVT_LIST_ITEM_SELECTED(wxID_ANY, HistoryDialog::OnItemSelected)
    EVT_BUTTON(ID_DISCARD, HistoryDialog::OnDiscard)
    EVT_BUTTON(ID_DISCARD_CLIPBOARD, HistoryDialog::OnDiscardClipboard)
+   EVT_BUTTON(ID_COMPACT, HistoryDialog::OnCompact)
+   EVT_BUTTON(wxID_HELP, HistoryDialog::OnGetURL)
 END_EVENT_TABLE()
 
 HistoryDialog::HistoryDialog(AudacityProject *parent, UndoManager *manager):
@@ -105,6 +110,7 @@ HistoryDialog::HistoryDialog(AudacityProject *parent, UndoManager *manager):
                .AddTextBox(XXO("&Total space used"), wxT("0"), 10);
             S.AddVariableText( {} )->Hide();
 
+#if defined(ALLOW_DISCARD)
             mAvail = S.Id(ID_AVAIL)
                .ConnectRoot(wxEVT_KEY_DOWN, &HistoryDialog::OnChar)
                .AddTextBox(XXO("&Undo levels available"), wxT("0"), 10);
@@ -123,22 +129,24 @@ HistoryDialog::HistoryDialog(AudacityProject *parent, UndoManager *manager):
             S.AddWindow(mLevels);
             /* i18n-hint: (verb)*/
             mDiscard = S.Id(ID_DISCARD).AddButton(XXO("&Discard"));
-
+#endif
             mClipboard = S
                .ConnectRoot(wxEVT_KEY_DOWN, &HistoryDialog::OnChar)
-               .AddTextBox(XXO("Clipboard space used"), wxT("0"), 10);
-            S.Id(ID_DISCARD_CLIPBOARD).AddButton(XXO("Discard"));
+               .AddTextBox(XXO("Clip&board space used"), wxT("0"), 10);
+
+#if defined(ALLOW_DISCARD)
+            S.Id(ID_DISCARD_CLIPBOARD).AddButton(XXO("D&iscard"));
+#endif
          }
          S.EndMultiColumn();
       }
       S.EndStatic();
-
-      S.StartHorizontalLay(wxALIGN_RIGHT, false);
-      {
-         S.SetBorder(10);
-         S.Id(wxID_OK).AddButton(XXO("&OK"), wxALIGN_CENTER, true);
-      }
-      S.EndHorizontalLay();
+#if defined(ALLOW_DISCARD)
+      mCompact = safenew wxButton(this, ID_COMPACT, _("&Compact"));
+      S.AddStandardButtons(eOkButton | eHelpButton, mCompact);
+#else
+      S.AddStandardButtons(eOkButton | eHelpButton);
+#endif
    }
    S.EndVerticalLay();
    // ----------------------- End of main section --------------
@@ -178,7 +186,10 @@ void HistoryDialog::OnAudioIO(wxCommandEvent& evt)
    else
       mAudioIOBusy = false;
 
+#if defined(ALLOW_DISCARD)
    mDiscard->Enable(!mAudioIOBusy);
+   mCompact->Enable(!mAudioIOBusy);
+#endif
 }
 
 void HistoryDialog::UpdateDisplay(wxEvent& e)
@@ -217,7 +228,9 @@ void HistoryDialog::DoUpdate()
 
    auto clipboardUsage = mManager->GetClipboardSpaceUsage();
    mClipboard->SetValue(Internat::FormatSize(clipboardUsage).Translation());
+#if defined(ALLOW_DISCARD)
    FindWindowById(ID_DISCARD_CLIPBOARD)->Enable(clipboardUsage > 0);
+#endif
 
    mList->EnsureVisible(mSelected);
 
@@ -230,6 +243,7 @@ void HistoryDialog::DoUpdate()
 
 void HistoryDialog::UpdateLevels()
 {
+#if defined(ALLOW_DISCARD)
    wxWindow *focus;
    int value = mLevels->GetValue();
 
@@ -253,6 +267,7 @@ void HistoryDialog::UpdateLevels()
 
    mLevels->Enable(mSelected > 0);
    mDiscard->Enable(!mAudioIOBusy && mSelected > 0);
+#endif
 }
 
 void HistoryDialog::OnDiscard(wxCommandEvent & WXUNUSED(event))
@@ -272,6 +287,31 @@ void HistoryDialog::OnDiscard(wxCommandEvent & WXUNUSED(event))
 void HistoryDialog::OnDiscardClipboard(wxCommandEvent & WXUNUSED(event))
 {
    Clipboard::Get().Clear();
+}
+
+void HistoryDialog::OnCompact(wxCommandEvent & WXUNUSED(event))
+{
+   auto &projectFileIO = ProjectFileIO::Get(*mProject);
+
+   projectFileIO.ReopenProject();
+
+   auto baseFile = wxFileName(projectFileIO.GetFileName());
+   auto walFile = wxFileName(projectFileIO.GetFileName() + wxT("-wal"));
+   auto before = baseFile.GetSize() + walFile.GetSize();
+
+   projectFileIO.Compact(nullptr, true);
+
+   auto after = baseFile.GetSize() + walFile.GetSize();
+
+   AudacityMessageBox(
+      XO("Compacting actually freed %s of disk space.")
+      .Format(Internat::FormatSize((before - after).GetValue())),
+      XO("History"));
+}
+
+void HistoryDialog::OnGetURL(wxCommandEvent & WXUNUSED(event))
+{
+   HelpSystem::ShowHelp(this, wxT("Undo,_Redo_and_History"));
 }
 
 void HistoryDialog::OnItemSelected(wxListEvent &event)

@@ -256,11 +256,6 @@ ProjectFileIO::~ProjectFileIO()
 {
 }
 
-bool ProjectFileIO::OpenProject()
-{
-   return OpenConnection();
-}
-
 sqlite3 *ProjectFileIO::DB()
 {
    auto &curConn = CurrConn();
@@ -282,7 +277,7 @@ bool ProjectFileIO::OpenConnection(FilePath fileName /* = {}  */)
 {
    auto &curConn = CurrConn();
    wxASSERT(!curConn);
-   bool temp = false;
+   bool isTemp = false;
 
    if (fileName.empty())
    {
@@ -290,7 +285,19 @@ bool ProjectFileIO::OpenConnection(FilePath fileName /* = {}  */)
       if (fileName.empty())
       {
          fileName = FileNames::UnsavedProjectFileName();
-         temp = true;
+         isTemp = true;
+      }
+   }
+   else
+   {
+      // If this project resides in the temporary directory, then we'll mark it
+      // as temporary.
+      wxFileName temp(FileNames::TempDir(), wxT(""));
+      wxFileName file(fileName);
+      file.SetFullName(wxT(""));
+      if (file == temp)
+      {
+         isTemp = true;
       }
    }
 
@@ -308,7 +315,7 @@ bool ProjectFileIO::OpenConnection(FilePath fileName /* = {}  */)
       return false;
    }
 
-   mTemporary = temp;
+   mTemporary = isTemp;
 
    SetFileName(fileName);
 
@@ -944,21 +951,17 @@ bool ProjectFileIO::ShouldCompact(const std::shared_ptr<TrackList> &tracks)
    );
 
    // Get the number of blocks and total length from the project file.
+   unsigned long long total = GetTotalUsage();
    unsigned long long blockcount = 0;
-   unsigned long long total = 0;
-
-   auto cb = [&blockcount, &total](int cols, char **vals, char **)
+   
+   auto cb = [&blockcount](int cols, char **vals, char **)
    {
       // Convert
       wxString(vals[0]).ToULongLong(&blockcount);
-      wxString(vals[1]).ToULongLong(&total);
       return 0;
    };
 
-   if (!Query("SELECT Count(*), "
-     "Sum(Length(summary256)) + Sum(Length(summary64k)) + Sum(Length(samples)) "
-     "FROM sampleblocks;", cb)
-       || total == 0)
+   if (!Query("SELECT Count(*) FROM sampleblocks;", cb) || blockcount == 0)
    {
       // Shouldn't compact since we don't have the full picture
       return false;
@@ -1019,31 +1022,45 @@ void ProjectFileIO::Compact(const std::shared_ptr<TrackList> &tracks, bool force
    wxString backName = origName + "_compact_back";
    wxString tempName = origName + "_compact_temp";
 
-   // Copy the original database to a new database while pruning unused sample blocks
-   if (CopyTo(tempName, XO("Compacting project"), mTemporary, true, tracks))
+   // Copy the original database to a new database. Only prune sample blocks if
+   // we have a tracklist.
+   if (CopyTo(tempName, XO("Compacting project"), IsTemporary(), tracks != nullptr, tracks))
    {
       // Must close the database to rename it
       if (CloseConnection())
       {
-         // Rename the original to backup
-         if (wxRenameFile(origName, backName))
+         // Only use the new file if it is actually smaller than the original.
+         //
+         // If the original file doesn't have anything to compact (original and new
+         // are basically identical), the file could grow by a few pages because of
+         // differences in how SQLite constructs the b-tree.
+         //
+         // In this case, just toss the new file and continue to use the original.
+         //
+         // Also, do this after closing the connection so that the -wal file
+         // gets cleaned up.
+         if (wxFileName::GetSize(tempName) < wxFileName::GetSize(origName))
          {
-            // Rename the temporary to original
-            if (wxRenameFile(tempName, origName))
+            // Rename the original to backup
+            if (wxRenameFile(origName, backName))
             {
-               // Open the newly compacted original file
-               OpenConnection(origName);
+               // Rename the temporary to original
+               if (wxRenameFile(tempName, origName))
+               {
+                  // Open the newly compacted original file
+                  OpenConnection(origName);
 
-               // Remove the old original file
-               wxRemoveFile(backName);
+                  // Remove the old original file
+                  wxRemoveFile(backName);
 
-               // Remember that we compacted
-               mWasCompacted = true;
+                  // Remember that we compacted
+                  mWasCompacted = true;
 
-               return;
+                  return;
+               }
+
+               wxRenameFile(backName, origName);
             }
-
-            wxRenameFile(backName, origName);
          }
 
          OpenConnection(origName);
@@ -1137,7 +1154,7 @@ void ProjectFileIO::SetFileName(const FilePath &fileName)
       ActiveProjects::Add(mFileName);
    }
 
-   if (mTemporary)
+   if (IsTemporary())
    {
       project.SetProjectName({});
    }
@@ -1793,51 +1810,53 @@ bool ProjectFileIO::LoadProject(const FilePath &fileName)
          // Error already set
          return false;
       }
-
-      // Missing both the autosave and project docs. This can happen if the
-      // system were to crash before the first autosave into a temporary file.
-      if (buffer.GetDataLen() == 0)
-      {
-         SetError(XO("Unable to load project or autosave documents"));
-         return false;
-      }
    }
 
-   // Decode it while capturing the associated sample blockids
-   project = ProjectSerializer::Decode(buffer, blockids);
-   if (project.empty())
-   {
-      SetError(XO("Unable to decode project document"));
-
-      return false;
-   }
-
-   // Check for orphans blocks...sets mRecovered if any were deleted
-   if (blockids.size() > 0)
-   {
-      if (!DeleteBlocks(blockids, true))
-      {
-         return false;
-      }
-   }
-
-   XMLFileReader xmlFile;
-
-   // Load 'er up
-   success = xmlFile.ParseString(this, project);
-   if (!success)
-   {
-      SetError(
-         XO("Unable to parse project information.")
-      );
-      mLibraryError = xmlFile.GetErrorStr();
-      return false;
-   }
-
-   // Remember if we used autosave or not
-   if (usedAutosave)
+   // Missing both the autosave and project docs. This can happen if the
+   // system were to crash before the first autosave into a temporary file.
+   // This should be a recoverable scenario.
+   if (buffer.GetDataLen() == 0)
    {
       mRecovered = true;
+   }
+   else
+   {
+      // Decode it while capturing the associated sample blockids
+      project = ProjectSerializer::Decode(buffer, blockids);
+      if (project.empty())
+      {
+         SetError(XO("Unable to decode project document"));
+
+         return false;
+      }
+
+      // Check for orphans blocks...sets mRecovered if any were deleted
+      if (blockids.size() > 0)
+      {
+         if (!DeleteBlocks(blockids, true))
+         {
+            return false;
+         }
+      }
+
+      XMLFileReader xmlFile;
+
+      // Load 'er up
+      success = xmlFile.ParseString(this, project);
+      if (!success)
+      {
+         SetError(
+            XO("Unable to parse project information.")
+         );
+         mLibraryError = xmlFile.GetErrorStr();
+         return false;
+      }
+
+      // Remember if we used autosave or not
+      if (usedAutosave)
+      {
+         mRecovered = true;
+      }
    }
 
    // Mark the project modified if we recovered it
@@ -1861,11 +1880,32 @@ bool ProjectFileIO::LoadProject(const FilePath &fileName)
 
    DiscardConnection();
 
+   success = true;
+
    return true;
 }
 
 bool ProjectFileIO::SaveProject(const FilePath &fileName, const std::shared_ptr<TrackList> &lastSaved)
 {
+   // In the case where we're saving a temporary project to a permanent project,
+   // we'll try to simply rename the project to save a bit of time. We then fall
+   // through to the normal Save (not SaveAs) processing.
+   if (IsTemporary() && mFileName != fileName)
+   {
+      FilePath savedName = mFileName;
+      if (CloseConnection())
+      {
+         if (wxRenameFile(savedName, fileName))
+         {
+            if (!OpenConnection(fileName))
+            {
+               wxRenameFile(fileName, savedName);
+               OpenConnection(savedName);
+            }
+         }
+      }
+   }
+
    // If we're saving to a different file than the current one, then copy the
    // current to the new file and make it the active file.
    if (mFileName != fileName)
@@ -1976,6 +2016,11 @@ bool ProjectFileIO::SaveCopy(const FilePath& fileName)
    return CopyTo(fileName, XO("Backing up project"), false, true);
 }
 
+bool ProjectFileIO::OpenProject()
+{
+   return OpenConnection();
+}
+
 bool ProjectFileIO::CloseProject()
 {
    auto &currConn = CurrConn();
@@ -1996,7 +2041,7 @@ bool ProjectFileIO::CloseProject()
    {
       // If this is a temporary project, we no longer want to keep the
       // project file.
-      if (mTemporary)
+      if (IsTemporary())
       {
          // This is just a safety check.
          wxFileName temp(FileNames::TempDir(), wxT(""));
@@ -2010,6 +2055,17 @@ bool ProjectFileIO::CloseProject()
    }
 
    return true;
+}
+
+bool ProjectFileIO::ReopenProject()
+{
+   FilePath fileName = mFileName;
+   if (!CloseConnection())
+   {
+      return false;
+   }
+
+   return OpenConnection(fileName);
 }
 
 bool ProjectFileIO::IsModified() const
@@ -2037,11 +2093,8 @@ void ProjectFileIO::Reset()
    SetFileName({});
 }
 
-wxLongLong ProjectFileIO::GetFreeDiskSpace()
+wxLongLong ProjectFileIO::GetFreeDiskSpace() const
 {
-   // make sure it's open and the path is defined
-   auto db = DB();
-
    wxLongLong freeSpace;
    if (wxGetDiskSpace(wxPathOnly(mFileName), NULL, &freeSpace))
    {
@@ -2051,12 +2104,12 @@ wxLongLong ProjectFileIO::GetFreeDiskSpace()
    return -1;
 }
 
-const TranslatableString & ProjectFileIO::GetLastError() const
+const TranslatableString &ProjectFileIO::GetLastError() const
 {
    return mLastError;
 }
 
-const TranslatableString & ProjectFileIO::GetLibraryError() const
+const TranslatableString &ProjectFileIO::GetLibraryError() const
 {
    return mLibraryError;
 }
@@ -2116,6 +2169,274 @@ void ProjectFileIO::SetBypass()
    }
 
    return;
+}
+
+int64_t ProjectFileIO::GetBlockUsage(SampleBlockID blockid)
+{
+   return GetDiskUsage(CurrConn().get(), blockid);
+}
+
+int64_t ProjectFileIO::GetCurrentUsage(const std::shared_ptr<TrackList> &tracks)
+{
+   unsigned long long current = 0;
+
+   InspectBlocks(*tracks, BlockSpaceUsageAccumulator(current), nullptr);
+
+   return current;
+}
+
+int64_t ProjectFileIO::GetTotalUsage()
+{
+   return GetDiskUsage(CurrConn().get(), 0);
+}
+
+//
+// Returns the amount of disk space used by the specified sample blockid or all
+// of the sample blocks if the blockid is 0.  It does this by using the raw SQLite
+// pages available from the "sqlite_dbpage" virtual table to traverse the SQLite
+// table b-tree described here:  https://www.sqlite.org/fileformat.html
+//
+int64_t ProjectFileIO::GetDiskUsage(DBConnection *conn, SampleBlockID blockid /* = 0 */)
+{
+   // Information we need to track our travels through the b-tree
+   typedef struct
+   {
+      int64_t pgno;
+      int currentCell;
+      int numCells;
+      unsigned char data[65536];
+   } page;
+   std::vector<page> stack;
+
+   int64_t total = 0;
+   int64_t found = 0;
+   int64_t right = 0;
+   int rc;
+
+   // Get the rootpage for the sampleblocks table.
+   sqlite3_stmt *stmt =
+      conn->Prepare(DBConnection::GetRootPage,
+                    "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'sampleblocks';");
+   if (stmt == nullptr || sqlite3_step(stmt) != SQLITE_ROW)
+   {
+      return 0;
+   }
+
+   // And store it in our first stack frame
+   stack.push_back({sqlite3_column_int64(stmt, 0)});
+
+   // All done with the statement
+   sqlite3_clear_bindings(stmt);
+   sqlite3_reset(stmt);
+
+   // Prepare/retrieve statement to read raw database page
+   stmt = conn->Prepare(DBConnection::GetDBPage,
+      "SELECT data FROM sqlite_dbpage WHERE pgno = ?1;");
+   if (stmt == nullptr)
+   {
+      return 0;
+   }
+
+   // Traverse the b-tree until we've visited all of the leaf pages or until
+   // we find the one corresponding to the passed in sample blockid. Because we
+   // use an integer primary key for the sampleblocks table, the traversal will
+   // be in ascending blockid sequence.
+   do
+   {
+      // Acces the top stack frame
+      page &pg = stack.back();
+
+      // Read the page from the sqlite_dbpage table if it hasn't yet been loaded
+      if (pg.numCells == 0)
+      {
+         // Bind the page number
+         sqlite3_bind_int64(stmt, 1, pg.pgno);
+
+         // And retrieve the page
+         if (sqlite3_step(stmt) != SQLITE_ROW)
+         {
+            return 0;
+         }
+
+         // Copy the page content to the stack frame
+         memcpy(&pg.data,
+                sqlite3_column_blob(stmt, 0),
+                sqlite3_column_bytes(stmt, 0));
+
+         // And retrieve the total number of cells within it
+         pg.numCells = get2(&pg.data[3]);
+
+         // Reset statement for next usage
+         sqlite3_clear_bindings(stmt);
+         sqlite3_reset(stmt);
+      }
+
+      //wxLogDebug("%*.*spgno %lld currentCell %d numCells %d", (stack.size() - 1) * 2, (stack.size() - 1) * 2, "", pg.pgno, pg.currentCell, pg.numCells);
+
+      // Process an interior table b-tree page
+      if (pg.data[0] == 0x05)
+      {
+         // Process the next cell if we haven't examined all of them yet
+         if (pg.currentCell < pg.numCells)
+         {
+            // Remember the right-most leaf page number.
+            right = get4(&pg.data[8]);
+
+            // Iterate over the cells.
+            //
+            // If we're not looking for a specific blockid, then we always push the
+            // target page onto the stack and leave the loop after a single iteration.
+            //
+            // Otherwise, we match the blockid against the highest integer key contained
+            // within the cell and if the blockid falls within the cell, we stack the
+            // page and stop the iteration.
+            //
+            // In theory, we could do a binary search for a specific blockid here, but
+            // because our sample blocks are always large, we will get very few cells
+            // per page...usually 6 or less.
+            //
+            // In both cases, the stacked page can be either an internal or leaf page.
+            bool stacked = false;
+            while (pg.currentCell < pg.numCells)
+            {
+               // Get the offset to this cell using the offset in the cell pointer
+               // array.
+               //
+               // The cell pointer array starts immediately after the page header
+               // at offset 12 and the retrieved offset is from the beginning of
+               // the page.
+               int celloff = get2(&pg.data[12 + (pg.currentCell * 2)]);
+
+               // Bump to the next cell for the next iteration.
+               pg.currentCell++;
+
+               // Get the page number this cell describes
+               int pagenum = get4(&pg.data[celloff]);
+
+               // And the highest integer key, which starts at offset 4 within the cell.
+               int64_t intkey = 0;
+               get_varint(&pg.data[celloff + 4], &intkey);
+
+               //wxLogDebug("%*.*sinternal - right %lld celloff %d pagenum %d intkey %lld", (stack.size() - 1) * 2, (stack.size() - 1) * 2, " ", right, celloff, pagenum, intkey);
+
+               // Stack the described page if we're not looking for a specific blockid
+               // or if this page contains the given blockid.
+               if (!blockid || blockid <= intkey)
+               {
+                  stack.push_back({pagenum, 0, 0});
+                  stacked = true;
+                  break;
+               }
+            }
+
+            // If we pushed a new page onto the stack, we need to jump back up
+            // to read the page
+            if (stacked)
+            {
+               continue;
+            }
+         }
+
+         // We've exhausted all the cells with this page, so we stack the right-most
+         // leaf page.  Ensure we only process it once.
+         if (right)
+         {
+            stack.push_back({right, 0, 0});
+            right = 0;
+            continue;
+         }
+      }
+      // Process a leaf table b-tree page
+      else if (pg.data[0] == 0x0d)
+      {
+         // Iterate over the cells
+         //
+         // If we're not looking for a specific blockid, then just accumulate the
+         // payload sizes. We will be reading every leaf page in the sampleblocks
+         // table.
+         //
+         // Otherwise we break out when we find the matching blockid. In this case,
+         // we only ever look at 1 leaf page.
+         bool stop = false;
+         for (int i = 0; i < pg.numCells; i++)
+         {
+            // Get the offset to this cell using the offset in the cell pointer
+            // array.
+            //
+            // The cell pointer array starts immediately after the page header
+            // at offset 8 and the retrieved offset is from the beginning of
+            // the page.
+            int celloff = get2(&pg.data[8 + (i * 2)]);
+
+            // Get the total payload size in bytes of the described row.
+            int64_t payload = 0;
+            int digits = get_varint(&pg.data[celloff], &payload);
+
+            // Get the integer key for this row.
+            int64_t intkey = 0;
+            get_varint(&pg.data[celloff + digits], &intkey);
+
+            //wxLogDebug("%*.*sleaf - celloff %4d intkey %lld payload %lld", (stack.size() - 1) * 2, (stack.size() - 1) * 2, " ", celloff, intkey, payload);
+
+            // Add this payload size to the total if we're not looking for a specific
+            // blockid
+            if (!blockid)
+            {
+               total += payload;
+            }
+            // Otherwise, return the payload size for a matching row
+            else if (blockid == intkey)
+            {
+               return payload;
+            }
+         }
+      }
+
+      // Done with the current branch, so pop back up to the previous one (if any)
+      stack.pop_back();
+   } while (!stack.empty());
+
+   // Return the total used for all sample blocks
+   return total;
+}
+
+// Retrieves a 2-byte big-endian integer from the page data
+unsigned int ProjectFileIO::get2(const unsigned char *ptr)
+{
+   return (ptr[0] << 8) | ptr[1];
+}
+
+// Retrieves a 4-byte big-endian integer from the page data
+unsigned int ProjectFileIO::get4(const unsigned char *ptr)
+{
+   return ((unsigned int) ptr[0] << 24) |
+          ((unsigned int) ptr[1] << 16) |
+          ((unsigned int) ptr[2] << 8)  |
+          ((unsigned int) ptr[3]);
+}
+
+// Retrieves a variable length integer from the page data. Returns the
+// number of digits used to encode the integer and the stores the
+// value at the given location.
+int ProjectFileIO::get_varint(const unsigned char *ptr, int64_t *out)
+{
+   int64_t val = 0;
+   int i;
+
+   for (i = 0; i < 8; ++i)
+   {
+      val = (val << 7) + (ptr[i] & 0x7f);
+      if ((ptr[i] & 0x80) == 0)
+      {
+         *out = val;
+         return i + 1;
+      }
+   }
+
+   val = (val << 8) + (ptr[i] & 0xff);
+   *out = val;
+
+   return 9;
 }
 
 AutoCommitTransaction::AutoCommitTransaction(ProjectFileIO &projectFileIO,
