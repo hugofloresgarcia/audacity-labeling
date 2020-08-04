@@ -206,3 +206,8 @@ win/xaudacity.ico
 #other files that get in the way
 */not-for-git/*
 *.dll
+
+# interactive audio lab labeler
+*.pb 
+*.pt
+wxWidgets/
