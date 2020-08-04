@@ -29,6 +29,9 @@
 #include "../widgets/FileHistory.h"
 #include "../widgets/wxPanelWrapper.h"
 
+// Added for the TrackLabeler
+#include "../labeler/Labeler.hpp"
+
 #ifdef USE_MIDI
 #include "../import/ImportMIDI.h"
 #endif // USE_MIDI
@@ -367,6 +370,16 @@ void OnExportMIDI(const CommandContext &context)
 
 void OnImport(const CommandContext &context)
 {
+    ImportAudio(context);
+}
+    
+void OnImportLabeledAudio(const CommandContext &context)
+{
+    ImportAudio(context, true);
+}
+    
+void ImportAudio(const CommandContext &context, bool labelAudio = false)
+{
    auto &project = context.project;
    auto &window = ProjectWindow::Get( project );
 
@@ -388,12 +401,17 @@ void OnImport(const CommandContext &context)
       window.HandleResize(); // Adjust scrollers for NEW track sizes.
    } );
 
+   wxString fileName = selectedFiles[0];
    for (size_t ff = 0; ff < selectedFiles.size(); ff++) {
       wxString fileName = selectedFiles[ff];
 
       FileNames::UpdateDefaultPath(FileNames::Operation::Import, ::wxPathOnly(fileName));
 
       ProjectFileManager::Get( project ).Import(fileName);
+   }
+
+   if (labelAudio) {
+           IALLabeler::LabelTrack(context, fileName.ToStdString());
    }
 
    window.ZoomAfterImport(nullptr);
@@ -666,6 +684,7 @@ BaseItemSharedPtr FileMenu()
          Menu( wxT("Import"), XXO("&Import"),
             Command( wxT("ImportAudio"), XXO("&Audio..."), FN(OnImport),
                AudioIONotBusyFlag(), wxT("Ctrl+Shift+I") ),
+            Command( wxT("ImportLabeledAudio"), XXO("&Labeled Audio..."), FN(OnImportLabeledAudio), AudioIONotBusyFlag() ),
             Command( wxT("ImportLabels"), XXO("&Labels..."), FN(OnImportLabels),
                AudioIONotBusyFlag() ),
       #ifdef USE_MIDI
