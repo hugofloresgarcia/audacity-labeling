@@ -15,10 +15,8 @@ cd into our labeler folder:
 install pip requirements  
 `pip3 install -r requirements.txt`
 
-clone our two preprocessors
-
-`git clone git@github.com:hugofloresgarcia/openl3.git`  <-- I had to make my own fork bc their weight link was broken
-
+clone our two preprocessors  
+`git clone git@github.com:hugofloresgarcia/openl3.git`  
 `git clone git@github.com:harritaylor/torchvggish.git`  
 
 
