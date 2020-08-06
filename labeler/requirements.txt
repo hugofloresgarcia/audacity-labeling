@@ -31,7 +31,6 @@ moviepy==1.0.3
 networkx==2.4
 numba==0.50.1
 numpy==1.19.1
--e git+https://github.com/hugofloresgarcia/audacity-labeling.git@eb56abe7caafa6979ea0a464f708923814a8ceaf#egg=openl3&subdirectory=labeler/openl3
 packaging==20.4
 pandas==1.1.0
 Pillow==7.2.0

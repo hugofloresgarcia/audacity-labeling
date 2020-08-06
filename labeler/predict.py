@@ -71,6 +71,23 @@ def label_audacity_track(prediction, ts, output_path):
     return label_track
         
 
+def predict_audacity_labels(
+            paths_to_audio, 
+            paths_to_output, 
+            path_to_config="./labeler/labeler-config.yaml"):
+    if isinstance(paths_to_audio, str):
+        paths_to_audio = [paths_to_audio]
+    if isinstance(paths_to_output, str):
+        paths_to_output = [paths_to_output]
+
+    config = yaml.load(path_to_config, Loader=yaml.SafeLoader)
+    
+    predictions = predict_from_audio_files(paths_to_audio)
+
+    for path, prediction in zip(paths_to_output, predictions):
+        pred, ts = prediction
+        label_audacity_track(pred, ts, path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -87,16 +104,4 @@ if __name__ == "__main__":
     paths_to_output = args.paths_to_output
     path_to_config = args.config
 
-    if isinstance(paths_to_audio, str):
-        paths_to_audio = [paths_to_audio]
-    if isinstance(paths_to_output, str):
-        paths_to_output = [paths_to_output]
-
-
-    config = yaml.load(path_to_config, Loader=yaml.SafeLoader)
-    
-    predictions = predict_from_audio_files(paths_to_audio)
-
-    for path, prediction in zip(paths_to_output, predictions):
-        pred, ts = prediction
-        label_audacity_track(pred, ts, path)
+    predict_audacity_labels(paths_to_audio, paths_to_output, path_to_config)

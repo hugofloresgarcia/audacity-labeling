@@ -2,7 +2,10 @@
 
 I'm trying to add the labeler as a small python server that creates label tracks for audacity tracks. 
 
-I haven't implemented the client-server code yet, but the labeler is fully functional as a command line tool. 
+The client-server code is written using the Zero-MQ library for both the C++ and python side. I know absolutely nothing about programming networks and sockets so if anybody has any suggestions I'd be happy to hear! :)
+
+### advantages
+- no more build times! build audacity once and change your models through python. 
 
 ### installing the labeler (python 3.7)
 
@@ -24,7 +27,14 @@ install openl3
 
 `pip3 install -e openl3 `
 
-### usage (labeler)
+### using with Audacity
+cd into the labeler folder and run the server app:  
+`python3 server.py`
+
+now, you will be able to import labeled audio in audacity using  
+File-->Import-->Labeled Audio
+
+### command line usage (labeler)
 
 cd into our labeler folder:  
 `cd labeler`
@@ -92,3 +102,20 @@ cd build
 cmake .. -G Xcode
 xcodebuild -configuration Debug
 ```
+
+Build steps:
+
+Build libzmq via cmake. This does an out of source build and installs the build files
+
+download and unzip the lib, cd to directory
+mkdir build
+cd build
+cmake ..
+sudo make -j4 install
+Build cppzmq via cmake. This does an out of source build and installs the build files
+
+download and unzip the lib, cd to directory
+mkdir build
+cd build
+cmake -DENABLE_DRAFTS=OFF ..
+sudo make -j4 install
