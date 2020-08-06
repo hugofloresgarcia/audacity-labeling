@@ -45,7 +45,7 @@ std::vector<std::vector<essentia::Real>> loadAudioThroughVGGish(const std::strin
 
     std::string vggishModelPath = wxFileName(FileNames::ResourcesDir(), wxT("vggish.pb")).GetFullPath().ToStdString();
 
-    Algorithm *loader = factory.create("EasyLoader",
+    Algorithm *loader = factory.create("MonoLoader",
                                        "filename", filepath,
                                        "sampleRate", sampleRate);
                                            
