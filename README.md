@@ -6,20 +6,24 @@ I haven't implemented the client-server code yet, but the labeler is fully funct
 
 ### installing the labeler (python 3.7)
 
-cd into our labeler folder:
+cd into our labeler folder:  
 `cd labeler`
 
-(optional) make your very own venv
+(optional) make your very own venv  
 `python3 -m venv venv-labeler` then `source venv-labeler/bin/activate`
 
-install pip requirements
+install pip requirements  
 `pip3 install -r requirements.txt`
 
 clone our two preprocessors
+
 `git clone git@github.com:hugofloresgarcia/openl3.git`  <-- I had to make my own fork bc their weight link was broken
+
 `git clone git@github.com:harritaylor/torchvggish.git`  
 
+
 install openl3
+
 `pip3 install -e openl3 `
 
 ### usage (labeler)
