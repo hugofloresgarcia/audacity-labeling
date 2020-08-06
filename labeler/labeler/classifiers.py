@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 
-
 def get_model(model_name, model_kwargs=None):
     if model_name == "jack":
         return Jack()

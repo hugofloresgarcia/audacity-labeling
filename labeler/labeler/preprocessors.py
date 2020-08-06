@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from .torchvggish.torchvggish.vggish import VGGish as VGGish_model
 
 def get_model(model_name, model_kwargs=None):
     if model_name == "vggish":
@@ -46,7 +47,20 @@ class OpenL3:
 
 class VGGish:
     def __init__(self):
-        self.model = torch.hub.load('harritaylor/torchvggish', 'vggish')
+        model_urls = {
+            'vggish': 'https://github.com/harritaylor/torchvggish/'
+                    'releases/download/v0.1/vggish-10086976.pth',
+            'pca': 'https://github.com/harritaylor/torchvggish/'
+                'releases/download/v0.1/vggish_pca_params-970ea276.pth'
+        }
+        self.model = VGGish_model(
+                        urls=model_urls, 
+                        pretrained=True, 
+                        preprocess=True, 
+                        postprocess=False, 
+                        progress=True)
+
+        # self.model = torch.hub.load('harritaylor/torchvggish', 'vggish')
         self.model.eval()
 
     def __call__(self, x, sr):

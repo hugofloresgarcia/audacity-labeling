@@ -4,6 +4,24 @@ I'm trying to add the labeler as a small python server that creates label tracks
 
 I haven't implemented the client-server code yet, but the labeler is fully functional as a command line tool. 
 
+### installing the labeler (python 3.7)
+
+cd into our labeler folder:
+`cd labeler`
+
+(optional) make your very own venv
+`python3 -m venv venv-labeler` then `source venv-labeler/bin/activate`
+
+install pip requirements
+`pip3 install -r requirements.txt`
+
+clone our two preprocessors
+`git clone git@github.com:hugofloresgarcia/openl3.git`  <-- I had to make my own fork bc their weight link was broken
+`git clone git@github.com:harritaylor/torchvggish.git`  
+
+install openl3
+`pip3 install -e openl3 `
+
 ### usage (labeler)
 
 cd into our labeler folder:  
@@ -49,28 +67,26 @@ preprocessor:
 classifier:
     name: custom
     classifier_kwargs: 
-            path_to_model: /path/to/model # add the path to your .pt file her
+            path_to_model: /path/to/model # add the path to your .pt file here
 ```         
 
+## building audacity (with cpp labeler)
+I've only tested this on MacOS Catalina (10.15.3)
 
-[![Audacity](https://forum.audacityteam.org/styles/prosilver/theme/images/Audacity-logo_75px_trans_forum.png)](https://www.audacityteam.org) 
-=========================
+first, you need to build essentia from source.   
+```
+git clone git@github.com:mtg/essentia.git
+cd essentia
+./waf configure --with-tensorflow --with-cpptests --with-examples
+./waf
+./waf install
+```
 
-[**Audacity**](https://www.audacityteam.org) is an easy-to-use, multi-track audio editor and recorder for Windows, Mac OS X, GNU/Linux and other operating systems. Developed by a group of volunteers as open source.
+now, build audacity
 
-- **Recording** from any real, or virtual audio device that is available to the host system.
-- **Export / Import** a wide range of audio formats, extendible with FFmpeg.
-- **High quality** using 32-bit float audio processing.
-- **Plug-ins** Support for multiple audio plug-in formats, including VST, LV2, AU.
-- **Macros** for chaining commands and batch processing.
-- **Scripting** in Python, Perl, or any language that supports named pipes.
-- **Nyquist** Very powerful built-in scripting language that may also be used to create plug-ins.
-- **Editing** multi-track editing with sample accuracy and arbitrary sample rates.
-- **Accessibility** for VI users.
-- **Analysis and visualization** tools to analyze audio, or other signal data.
-
-## Getting Started
-
-For end users, the latest Windows and macOS release version of Audacity is available from the [Audacity website](https://www.audacityteam.org/download/).
-Help with using Audacity is available from the [Audacity Forum](https://forum.audacityteam.org/).
-Information for developers is available from the [Audacity Wiki](https://wiki.audacityteam.org/wiki/For_Developers).
+```
+mkdir build
+cd build
+cmake .. -G Xcode
+xcodebuild -configuration Debug
+```

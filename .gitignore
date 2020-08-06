@@ -219,6 +219,7 @@ wxWidgets/
 **/.ipynb_checkpoints
 *.DS_Store
 **/.idea
-labeler/openl3/
+labeler/labeler/openl3/
 labeler/venv-labeler/
 labeler/test/**
+labeler/labeler/torchvggish/
