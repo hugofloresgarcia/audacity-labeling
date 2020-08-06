@@ -92,6 +92,7 @@ if __name__ == "__main__":
     if isinstance(paths_to_output, str):
         paths_to_output = [paths_to_output]
 
+
     config = yaml.load(path_to_config, Loader=yaml.SafeLoader)
     
     predictions = predict_from_audio_files(paths_to_audio)

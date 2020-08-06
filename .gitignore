@@ -221,3 +221,4 @@ wxWidgets/
 **/.idea
 labeler/openl3/
 labeler/venv-labeler/
+labeler/test/**
