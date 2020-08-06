@@ -1,0 +1,5 @@
+preprocessor:
+  name: 'vggish'
+classifier:
+  name: 'jack'
+

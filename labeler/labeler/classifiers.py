@@ -2,9 +2,14 @@ import numpy as np
 import torch
 
 
-def get_model(model_name):
+def get_model(model_name, model_kwargs=None):
     if model_name == "jack":
         return Jack()
+    elif model_name == "custom":
+        assert 'path_to_model' in model_kwargs, "didn't specify path_to_model in model_kwargs"
+        model = torch.load(model_kwargs['path_to_model'])
+        model.eval()
+        return model
     else:
         raise ValueError("incorrect classifier name")
 

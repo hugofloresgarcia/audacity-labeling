@@ -1,20 +1,20 @@
 import torch
 import numpy as np
 
-def get_model(model_name, model_params=None):
+def get_model(model_name, model_kwargs=None):
     if model_name == "vggish":
         return VGGish()
     elif model_name == "OpenL3":
-        if model_params is None:
-            params = dict(
+        if model_kwargs is None:
+            model_kwargs = dict(
                 input_repr="mel128", 
                 embedding_size=512, 
                 content_type="music"
             )
         return OpenL3(
-            params["input_repr"],
-            params["embedding_size"], 
-            params["content_type"]
+            model_kwargs["input_repr"],
+            model_kwargs["embedding_size"], 
+            model_kwargs["content_type"]
         )
     else:
         raise ValueError("couldn't find that model")
