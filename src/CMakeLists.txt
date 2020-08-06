@@ -1304,39 +1304,33 @@ source_group(
 )
 
 ### INTERACTIVE AUDIO LAB LABELER
+# MAKE A VENV
+find_package(Python3 COMPONENTS Interpreter Development)
+set(LABELER_DIR "${topdir}/labeler")
+execute_process(COMMAND "${Python3_EXECTABLE} -m venv ${LABELER_DIR}/venv/")
+# Here is the trick
+## update the environment with VIRTUAL_ENV variable (mimic the activate script)
+set (ENV{VIRTUAL_ENV} "${LABELER_DIR}/venv/")
+## change the context of the search
+set (Python3_FIND_VIRTUALENV FIRST)
+## unset Python3_EXECUTABLE because it is also an input variable (see documentation, Artifacts Specification section)
+unset (Python3_EXECUTABLE)
+## Launch a new search
+find_package (Python3 COMPONENTS Interpreter Development)
+
+
+find_package(PythonLibs REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
+
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-
-# # ESSENTIA STATIC
-# find_library(essentia_location NAMES libessentia.a)
-# message(STATUS ${essentia_location})
-# ADD_LIBRARY(essentia STATIC IMPORTED)
-# set_target_properties(essentia PROPERTIES
-#     IMPORTED_LOCATION ${essentia_location})
-
-# ESSENTIA SHARED
-find_library(essentia_location NAMES libessentia.dylib)
-message(STATUS ${essentia_location})
-add_library(essentia SHARED IMPORTED)
-set_target_properties(essentia PROPERTIES
-   IMPORTED_LOCATION ${essentia_location})
-
-### TENSORFLOW
-find_library(tf_loc NAMES libtensorflow.so)
-message(STATUS ${tf_loc})
-ADD_LIBRARY(tensorflow SHARED IMPORTED)
-SET_TARGET_PROPERTIES(tensorflow PROPERTIES
-   IMPORTED_LOCATION ${tf_loc})
-
-target_include_directories(${TARGET} PUBLIC "${topdir}/src/libtorch/include")
-target_include_directories(${TARGET} PUBLIC "/usr/local/include/eigen3")
 
 target_sources( ${TARGET} PRIVATE ${HEADERS} ${SOURCES} ${RESOURCES} ${MAC_RESOURCES} ${WIN_RESOURCES} )
 target_compile_definitions( ${TARGET} PRIVATE ${DEFINES} )
 target_compile_options( ${TARGET} PRIVATE ${OPTIONS} )
 target_include_directories( ${TARGET} PRIVATE ${INCLUDES})
 target_link_options( ${TARGET} PRIVATE ${LDFLAGS} )
-target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}" essentia tensorflow)
+target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} ${PYTHON_LIBRARIES})
 ###################################
 
 

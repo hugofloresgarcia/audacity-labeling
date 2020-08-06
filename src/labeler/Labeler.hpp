@@ -16,7 +16,6 @@ class CommandContext;
 
 namespace IALLabeler {
     void LabelTrack(const CommandContext &context, const std::string &audioFilePath);
-    // std::ofstream LabelLogger;
 }
 
 

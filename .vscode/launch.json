@@ -8,7 +8,7 @@
             "name": "(lldb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/Users/hugoffg/Documents/lab/audacity-labeling/build/bin/Release/Audacity.app/Contents/MacOS/Audacity",
+            "program": "/Users/hugoffg/Documents/lab/audacity-labeling/build/bin/Debug/Audacity.app/Contents/MacOS/Audacity",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

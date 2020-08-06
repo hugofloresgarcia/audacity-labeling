@@ -211,3 +211,13 @@ win/xaudacity.ico
 *.pb 
 *.pt
 wxWidgets/
+
+# Python labeling gitignore
+**/philharmonia
+**/__pycache__
+*.pyc
+**/.ipynb_checkpoints
+*.DS_Store
+**/.idea
+labeler/openl3/
+labeler/venv-labeler/
