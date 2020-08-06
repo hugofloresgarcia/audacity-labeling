@@ -4,7 +4,8 @@ import os
 
 from predict import predict_audacity_labels
 
-
+#TODO make this work with lists
+#TODO close the port properly
 context = zmq.Context()
 socket = context.socket(zmq.REP)
 socket.bind("tcp://127.0.0.1:5555")
