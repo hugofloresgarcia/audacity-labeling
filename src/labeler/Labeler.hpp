@@ -16,7 +16,8 @@ class CommandContext;
 
 namespace IALLabeler {
     void LabelTrack(const CommandContext &context, const std::string &audioFilePath);
+    void LabelTrack(const CommandContext &context, wxArrayString selectedFiles);
 }
 
 
-#endif /* PythonBridge_hpp */
+#endif 

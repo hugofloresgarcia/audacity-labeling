@@ -50,7 +50,7 @@ def predict_from_audio_files(path_to_audio, params = None):
         print('classifying audio...')
         pred, pred_ts = classifier_model.predict(emb, emb_ts)
         predictions.append((pred, pred_ts))
-        print(f'done!')
+        print(f'done!\n')
     return predictions
 
 def label_audacity_track(prediction, ts, output_path):

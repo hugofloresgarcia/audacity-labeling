@@ -54,6 +54,12 @@
 
 using namespace std;
 
+void IALLabeler::LabelTrack(const CommandContext &context, wxArrayString selectedFiles){
+   for (size_t ff = 0; ff < selectedFiles.size(); ff++) {
+      wxString fileName = selectedFiles[ff];
+      LabelTrack(context, fileName.ToStdString());
+   }
+}
 void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
     auto &project = context.project;
     auto &trackFactory = TrackFactory::Get( project );

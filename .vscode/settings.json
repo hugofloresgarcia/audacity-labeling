@@ -71,6 +71,6 @@
         "valarray": "cpp",
         "variant": "cpp"
     },
-    "editor.fontFamily": "Vulf Mono-Regular",
-    "python.pythonPath": "/usr/local/Cellar/python/3.7.5/Frameworks/Python.framework/Versions/3.7/bin/python3.7"
+    "python.pythonPath": "/usr/local/Cellar/python/3.7.5/Frameworks/Python.framework/Versions/3.7/bin/python3.7",
+    "editor.minimap.enabled": false
 }

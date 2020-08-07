@@ -467,10 +467,9 @@ void ImportAudio(const CommandContext &context, bool labelAudio = false)
       FileNames::UpdateDefaultPath(FileNames::Operation::Import, ::wxPathOnly(fileName));
 
       ProjectFileManager::Get( project ).Import(fileName);
-   }
-
-   if (labelAudio) {
+      if (labelAudio) {
            IALLabeler::LabelTrack(context, fileName.ToStdString());
+      }
    }
 
    window.ZoomAfterImport(nullptr);
