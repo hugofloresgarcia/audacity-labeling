@@ -54,6 +54,8 @@
 
 using namespace std;
 
+// TODO: labels should be imported right below the audio track. 
+
 void IALLabeler::LabelTrack(const CommandContext &context, wxArrayString selectedFiles){
    for (size_t ff = 0; ff < selectedFiles.size(); ff++) {
       wxString fileName = selectedFiles[ff];
