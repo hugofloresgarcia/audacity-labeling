@@ -22,7 +22,6 @@ clone our two preprocessors
 `git clone git@github.com:hugofloresgarcia/openl3.git`  
 `git clone git@github.com:harritaylor/torchvggish.git`  
 
-
 install openl3
 
 `pip3 install -e openl3 `
@@ -41,6 +40,8 @@ cd build
 cmake .. -G Xcode
 xcodebuild -configuration Debug
 ```
+
+Audacity should now be in /build/bin/Debug/Audacity.app
 
 ### using with Audacity
 cd into the labeler folder and run the server app:  
