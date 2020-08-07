@@ -7,7 +7,7 @@ The client-server code is written using the Zero-MQ library for both the C++ and
 ### advantages
 - no more build times! build audacity once and change your models through python. 
 
-### installing the labeler (python 3.7)
+## installing the labeler (python 3.7)
 
 cd into our labeler folder:  
 `cd labeler`
@@ -43,14 +43,14 @@ xcodebuild -configuration Debug
 
 Audacity should now be in /build/bin/Debug/Audacity.app
 
-### using with Audacity
+## using with Audacity
 cd into the labeler folder and run the server app:  
 `python3 server.py`
 
 now, you will be able to import labeled audio in audacity using  
 File-->Import-->Labeled Audio
 
-### command line usage (labeler)
+## command line usage (labeler)
 
 cd into our labeler folder:  
 `cd labeler`
@@ -61,7 +61,7 @@ use `predict.py` to create individual label track files for a set for audio path
 make sure to provide proper paths for each input and output file.  
 after the .txt files have been created, import them to audacity through File->Import->Labels... menu  
 
-### chaging the preprocessor and classifier models
+## chaging the preprocessor and classifier models
 if you would like to change what preprocessor-classifier model is used, head to `labeler/labeler/labeler-config.yaml` and change the model using the following syntax:
 
 ***important***: make sure that the  preprocessor name you're referring to has been implemented in `labeler/classifiers.py` or `labeler/preprocessors.py`. to load a precompiled model, see the next section. 
@@ -83,7 +83,7 @@ classifier:
     classifier_kwargs: 
 ```
 
-### loading a precompiled model
+## loading a precompiled model
 to label a precompiled model, format the labeler-config.yaml as follows:
 ```
 preprocessor:
