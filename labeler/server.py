@@ -24,7 +24,7 @@ try:
         root = os.path.dirname(paths_to_audio)
         audio_name = os.path.splitext(base)[0]
 
-        paths_to_output = os.path.join(root, audio_name + '.txt')
+        paths_to_output = os.path.join(root, audio_name + '-labels' '.txt')
 
         print(f'our path to output is {paths_to_output}')
 

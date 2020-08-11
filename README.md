@@ -29,8 +29,24 @@ install openl3
 ## building audacity (with python labeler)
 I've only tested this on MacOS Catalina (10.15.3)
 
-first, install ZeroMQ using brew.   
-`brew install zeromq`
+#### this chunk is from mac/cmake_build.txt
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Clone wxWidgets 3.1.3:
+
+`git clone --recurse-submodules https://github.com/audacity/wxWidgets.git`
+`git checkout audacity-fixes-3.1.3`
+
+Change directory to the folder where wxWidgets was cloned and build it using:
+
+`sudo <path to Audacity source>/mac/scripts/build_wxwidgets`
+
+The config command should return "3.1.3" if the install was successful:
+`/usr/local/x86_64/bin/wx-config --version`
+
+Now that you have wxWidgets installed, edit your .bash_profile and add:
+`export WX_CONFIG=/usr/local/x86_64/bin/wx-config`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 now, build audacity
 
@@ -84,7 +100,8 @@ classifier:
 ```
 
 ## loading a precompiled model
-to label a precompiled model, format the labeler-config.yaml as follows:
+to label a precompiled model, format the labeler-config.yaml as follows:  
+note that the model must be a pytorch model and must be able to load using torch.load()
 ```
 preprocessor:
     name: custom
