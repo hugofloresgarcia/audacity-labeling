@@ -44,7 +44,6 @@ class OpenL3:
 
         return embedding, ts
 
-
 class VGGish:
     def __init__(self):
         model_urls = {

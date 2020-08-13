@@ -18,13 +18,14 @@ cd into our labeler folder:
 install pip requirements  
 `pip3 install -r requirements.txt`
 
-clone our two preprocessors  
+clone our two preprocessors to <path to audacity>/labeler/labeler/
+`cd  <path to audacity>/labeler/labeler/preprocessors`
 `git clone git@github.com:hugofloresgarcia/openl3.git`  
 `git clone git@github.com:harritaylor/torchvggish.git`  
 
 install openl3
 
-`pip3 install -e openl3 `
+`pip3 install ./openl3 `
 
 ## building audacity (with python labeler)
 I've only tested this on MacOS Catalina (10.15.3)
@@ -33,24 +34,30 @@ I've only tested this on MacOS Catalina (10.15.3)
 
 Clone wxWidgets 3.1.3:
 
-`git clone --recurse-submodules https://github.com/audacity/wxWidgets.git`
+`git clone --recurse-submodules https://github.com/audacity/wxWidgets.git`  
+`cd wxWidgets`  
 `git checkout audacity-fixes-3.1.3`
 
 Change directory to the folder where wxWidgets was cloned and build it using:
 
 `sudo <path to Audacity source>/mac/scripts/build_wxwidgets`
 
-The config command should return "3.1.3" if the install was successful:
+The config command should return "3.1.3" if the install was successful:  
 `/usr/local/x86_64/bin/wx-config --version`
 
-Now that you have wxWidgets installed, edit your .bash_profile and add:
+Now that you have wxWidgets installed, edit your .bash_profile and add:  
 `export WX_CONFIG=/usr/local/x86_64/bin/wx-config`
 
 cool
 
+install zero-mq library using brew
+
+`brew install zeromq`
+
 now, build audacity
 
 ```
+cd <path to Audacity source>
 mkdir build
 cd build
 cmake .. -G Xcode

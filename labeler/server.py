@@ -32,7 +32,8 @@ try:
 
         # send reply
         socket.send_string(paths_to_output)
-except KeyboardInterrupt:
+except Exception as e:
+    print(f'exception occured: {e}')
     pass
 finally:
     context.term()
