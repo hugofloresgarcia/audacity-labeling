@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from .torchvggish.torchvggish.vggish import VGGish as VGGish_model
+import openl3
+
 
 def get_model(model_name, model_kwargs=None):
     if model_name == "vggish":
@@ -17,6 +19,14 @@ def get_model(model_name, model_kwargs=None):
             model_kwargs["embedding_size"], 
             model_kwargs["content_type"]
         )
+    elif 'openl3' in model_name:
+        params = model_name.split('-')
+        model = OpenL3(
+            input_repr=params[1],
+            embedding_size=int(params[2]), 
+            content_type=params[3], 
+        )
+        return model
     else:
         raise ValueError("couldn't find that model")
 
@@ -37,11 +47,13 @@ class OpenL3:
         assert isinstance(sr, int), "input needs to be an int"
 
         assert x.ndim == 1, "input needs to be shape (Frame,). No channel dimension"
+        import openl3
 
         embedding, ts = openl3.get_audio_embedding(x, sr, model=self.model,  verbose=False,
                                              content_type="music", embedding_size=512,
-                                             center=True, hop_size=1)
+                                             center=False, hop_size=1)
 
+        assert embedding.ndim == 2
         return embedding, ts
 
 class VGGish:
@@ -68,12 +80,11 @@ class VGGish:
 
         assert x.ndim == 1, "input needs to be shape (Frame,) (no channel dimension)"
 
-        #TODO this may not work if audio files are different sample rates, may need to iterate instead.
-        # lets do the mean var, dmean dvar on the vggish embedding
         embedding = self.model(x, sr)
         ts = np.array(range(len(embedding))) # luckily, the hop size is 1 
 
         if isinstance(embedding, torch.Tensor):
             embedding = embedding.detach().numpy()
 
+        assert embedding.ndim == 2
         return embedding, ts

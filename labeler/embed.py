@@ -12,6 +12,7 @@ import argparse
 import torchaudio
 
 from labeler import preprocessors
+import openl3
 
 
 def embed(audio, sr, model):

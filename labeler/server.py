@@ -13,7 +13,7 @@ socket.bind("tcp://127.0.0.1:5555")
 
 try:
     while True:
-        # wait for next request from client
+# wait for next request from client
         print(f'waiting for request...')
         message = socket.recv()
         print(f"received request {message}")

@@ -1,5 +1,26 @@
 preprocessor:
-  name: 'vggish'
+  name: 'openl3-mel256-6144-music'
 classifier:
-  name: 'jack'
-
+  name: 'openl3_svm-linear_19-class'
+  classifier_kwargs: 
+    path_to_model: './classifiers/openl3_svm-linear_19-class'
+    classes: 
+      - bassoon
+      - saxophone
+      - trumpet
+      - viola
+      - contrabassoon 
+      - double bass
+      - oboe
+      - flute
+      - french horn
+      - cello
+      - clarinet
+      - tuba
+      - banjo
+      - mandolin
+      - english-horn
+      - guitar
+      - violin
+      - bass clarinet
+      - trombone

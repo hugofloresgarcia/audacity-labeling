@@ -1,16 +1,44 @@
 import numpy as np
 import torch
+from joblib import load
 
 def get_model(model_name, model_kwargs=None):
     if model_name == "jack":
-        return Jack()
+        model = Jack()
     elif model_name == "custom":
         assert 'path_to_model' in model_kwargs, "didn't specify path_to_model in model_kwargs"
         model = torch.load(model_kwargs['path_to_model'])
         model.eval()
-        return model
+    elif model_name == 'openl3_svm-linear_19-class':
+        model = LinearSVM(
+            path_to_model=model_kwargs['path_to_model'],
+            classes=model_kwargs['classes']
+        )
     else:
         raise ValueError("incorrect classifier name")
+
+    return model
+
+class LinearSVM:
+    def __init__(self, path_to_model, classes):
+        self.classes = tuple(classes)
+        self.model = load(path_to_model)
+        self.pca = load(path_to_model + '_pca')
+        # self.fischer = load(path_to_model + '_fischer')
+
+    def predict(self, x, ts=None):
+        assert isinstance(x, np.ndarray), "input must be numpy array"
+        assert x.ndim == 2, "input must be openl3 embedding with shape (F, 512)"
+
+        print(x.shape)
+        x = self.pca.transform(x)
+
+        pred = self.model.predict(x)
+        labels = [self.classes[int(i)] for i in pred]
+        print(ts.shape)
+        ts = list(range(ts[0], ts[-1]+2, 1*(ts[-1]-ts[-2]))) if len(ts) > 1 else [0, 1]
+        return labels, ts
+
 
 class Jack:
     def __init__(self):
@@ -26,7 +54,7 @@ class Jack:
         self.labels = ('Drums', 'Guitar', 'Strings (continued)', 'Silence')
 
 
-    def __call__(self, x):
+    def __call__(self, x, ):
         """
         predict class probabilities from input embedding x. 
         x must be a torch tensor of shape (1, 128, 8) 

@@ -22,6 +22,7 @@ def predict_from_audio_files(path_to_audio, params = None):
         classifier_name = 'jack'
         classifier_kwargs = None
     else:
+        print(params)
         preprocessor_name = params['preprocessor']['name']
         preprocessor_kwargs = params['preprocessor']['preprocessor_kwargs'] \
             if 'preprocessor_kwargs' in params['preprocessor'] else None
@@ -34,6 +35,7 @@ def predict_from_audio_files(path_to_audio, params = None):
     # load model
     print(f'loading model {preprocessor_name} with kwargs {preprocessor_kwargs}')
     print(f'loading classifier {classifier_name} with kwargs {classifier_kwargs}')
+
     emb_model = preprocessors.get_model(preprocessor_name, preprocessor_kwargs)
     classifier_model = classifiers.get_model(classifier_name, classifier_kwargs)
 
@@ -49,19 +51,20 @@ def predict_from_audio_files(path_to_audio, params = None):
         # now, make our env a torch tensor for classification
         print('classifying audio...')
         pred, pred_ts = classifier_model.predict(emb, emb_ts)
+        pred_ts[-1] = len(audio[0])/sr
         predictions.append((pred, pred_ts))
+
         print(f'done!\n')
     return predictions
 
 def label_audacity_track(prediction, ts, output_path):
     label_track = ''
     print(f'writing label track to {output_path}...')
+    print(prediction)
+    print(ts) 
     for idx, pred in enumerate(prediction):
         start = ts[idx]
-        if (idx+1) == len(prediction):
-            stop = ts[idx] + (ts[idx] - ts[idx-1])
-        else: 
-            stop = ts[idx+1]
+        stop = ts[idx+1]
 
         label_track += f'{start}\t{stop}\t{pred}\n'
 
@@ -80,9 +83,24 @@ def predict_audacity_labels(
     if isinstance(paths_to_output, str):
         paths_to_output = [paths_to_output]
 
-    config = yaml.load(path_to_config, Loader=yaml.SafeLoader)
-    
-    predictions = predict_from_audio_files(paths_to_audio)
+    config = yaml.load(path_to_config)
+    print(config)
+    config = {
+        'preprocessor': {
+            'name': 'openl3-mel256-6144-music',
+            'model_kwargs': {
+                'path_to_model': 'openl3-mel256-6144-music'
+            }
+        },
+        'classifier': {
+            'name': 'openl3_svm-linear_19-class',
+            'classifier_kwargs': {
+                'path_to_model': './classifiers/openl3_svm-linear_1s-chunks_no-weights',
+                'classes': "saxophone,flute,guitar,contrabassoon,bass-clarinet,trombone,cello,oboe,bassoon,banjo,mandolin,tuba,viola,french-horn,english-horn,violin,double-bass,trumpet,clarinet".split(',')
+            }
+        }
+    } 
+    predictions = predict_from_audio_files(paths_to_audio, params=config)
 
     for path, prediction in zip(paths_to_output, predictions):
         pred, ts = prediction
