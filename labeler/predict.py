@@ -5,6 +5,7 @@ created by hugo flores garcia on 08/04/2020
 """
 from labeler import classifiers
 from labeler import preprocessors
+from labeler import audio_utils
 from embed import embed
 
 import numpy as np
@@ -45,6 +46,7 @@ def predict_from_audio_files(path_to_audio, params = None):
         audio, sr = torchaudio.load(path)
         audio = audio.detach().numpy()
 
+        audio_list, intervals = audio_utils.split_on_silence(audio, top_db=80
         print('embedding audio...')
         emb, emb_ts = embed(audio, sr, emb_model)
 

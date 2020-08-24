@@ -33,7 +33,7 @@ def embed(audio, sr, model):
             z = np.zeros(rate - l)
             a = np.concatenate([a[0], z])
             a = np.expand_dims(a, 0)
-        # downmix if neededa
+        # downmix if needed
         if a.ndim == 2:
             a = a.mean(axis=0)
 

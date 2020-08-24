@@ -28,15 +28,17 @@ class LinearSVM:
 
     def predict(self, x, ts=None):
         assert isinstance(x, np.ndarray), "input must be numpy array"
-        assert x.ndim == 2, "input must be openl3 embedding with shape (F, 512)"
+        assert x.ndim == 2, "input must be openl3 embedding with ndim 2"
 
         print(x.shape)
         x = self.pca.transform(x)
 
         pred = self.model.predict(x)
         labels = [self.classes[int(i)] for i in pred]
+
         print(ts.shape)
         ts = list(range(ts[0], ts[-1]+2, 1*(ts[-1]-ts[-2]))) if len(ts) > 1 else [0, 1]
+        
         return labels, ts
 
 
