@@ -4,21 +4,9 @@ from .torchvggish.torchvggish.vggish import VGGish as VGGish_model
 import openl3
 
 
-def get_model(model_name, model_kwargs=None):
+def get_model(model_name):
     if model_name == "vggish":
         return VGGish()
-    elif model_name == "OpenL3":
-        if model_kwargs is None:
-            model_kwargs = dict(
-                input_repr="mel128", 
-                embedding_size=512, 
-                content_type="music"
-            )
-        return OpenL3(
-            model_kwargs["input_repr"],
-            model_kwargs["embedding_size"], 
-            model_kwargs["content_type"]
-        )
     elif 'openl3' in model_name:
         params = model_name.split('-')
         model = OpenL3(
@@ -30,11 +18,9 @@ def get_model(model_name, model_kwargs=None):
     else:
         raise ValueError("couldn't find that model")
 
-#TODO: rewrite these models as nn.modules to do batch processing and optimize training.
-#TODO: though, you can't do batch processing with audio because it's not uniform.
+
 class OpenL3:
     def __init__(self, input_repr, embedding_size, content_type):
-        # LAZY LOADING !! tensorflow b heavy
         import openl3 
         self.model = openl3.models.load_audio_embedding_model(
             input_repr=input_repr,

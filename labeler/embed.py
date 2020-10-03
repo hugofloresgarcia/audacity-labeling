@@ -11,40 +11,30 @@ import pandas as pd
 import argparse
 import torchaudio
 
-from labeler import preprocessors
+from labeler import preprocessors, audio_utils
 import openl3
 
 
 def embed(audio, sr, model):
-    if isinstance(audio, list):
-        batch=True
-    elif isinstance(audio, np.ndarray):
-        batch=False
-        audio = [audio]
-        sr = [sr]
-    else:
-        raise ValueError("audio must be an np array if or list (if batch)")
-    
-    embeddings = []
-    for a, rate in zip(audio, sr):
-        # pad with zeros if needed
-        if a.shape[1] < rate:
-            l = a.shape[1]
-            z = np.zeros(rate - l)
-            a = np.concatenate([a[0], z])
-            a = np.expand_dims(a, 0)
-        # downmix if needed
-        if a.ndim == 2:
-            a = a.mean(axis=0)
+    audio = audio_utils.downmix(audio)
+    audio = audio_utils.zero_pad(audio, length=sr)
 
-        embedding = model(a, rate)
-        embeddings.append(embedding)
-    
-    # remove from list if we didn't get a batch to begin with
-    if not batch:
-        embeddings = embeddings[0]
+    embedding = model(audio, sr)
 
-    return embeddings
+    return embedding
+
+def embed_audio_file(path_to_audio, path_to_output, model):
+    audio, sr = torchaudio.load(path_to_audio)
+    audio = audio.detach().numpy()
+
+    embedding = embed(audio, sr, model)
+
+    pd.DataFrame(embedding).to_json(path_to_output)
+
+def embed_audio_files(list_of_in_paths, list_of_out_paths, model):
+    for in_path, out_path in zip(list_of_in_paths, list_of_out_paths):
+        embed_audio_file(in_path, out_path, model)
+
 
 
 if __name__ == "__main__":
@@ -64,18 +54,7 @@ if __name__ == "__main__":
     assert isinstance(path_to_output, list)
     assert len(path_to_audio) == len(path_to_output), "inputs and outputs must be the same"
 
-    # load model
-    model = preprocessors.get_model(model_name)
-    embeddings = []
-    for path in path_to_audio:
-        audio, sr = torchaudio.load(path_to_audio)
-        audio = audio.detach().numpy()
-
-        embedding = embed(audio, sr, model)
-        embeddings.append(embedding)
-    
-    for path, embedding in zip(path_to_output, embeddings):
-        pd.DataFrame(embedding).to_json(path)
+    embed_audio_files(path_to_audio, path_to_output, model)
 
     
         

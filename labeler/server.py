@@ -1,8 +1,9 @@
 import time
 import zmq
 import os
+import traceback
 
-from predict import predict_audacity_labels
+from predict import write_audacity_labels
 
 
 #TODO: figure out a way to start and kill the server from within Audacity. 
@@ -18,22 +19,24 @@ try:
         message = socket.recv()
         print(f"received request {message}")
 
-        paths_to_audio = message.decode('utf-8')
+        audio_path = message.decode('utf-8')
 
-        base = os.path.basename(paths_to_audio)
-        root = os.path.dirname(paths_to_audio)
+        base = os.path.basename(audio_path)
+        root = os.path.dirname(audio_path)
         audio_name = os.path.splitext(base)[0]
 
-        paths_to_output = os.path.join(root, audio_name + '-labels' '.txt')
+        label_path = os.path.join(root, audio_name + '-labels' '.txt')
 
-        print(f'our path to output is {paths_to_output}')
+        print(f'our label output path is {label_path}')
 
-        predict_audacity_labels(paths_to_audio, paths_to_output)
+        write_audacity_labels(audio_path, label_path)
 
         # send reply
-        socket.send_string(paths_to_output)
+        socket.send_string(label_path)
 except Exception as e:
+    socket.send_string("/Users/hugoffg/Documents/lab/philharmonia-dataset/data/philharmonia/all-samples/cello/cello_Gs5_05_pianissimo_arco-normal-labels.txt")
     print(f'exception occured: {e}')
+    print(traceback.format_exc())
     pass
 finally:
     context.term()
