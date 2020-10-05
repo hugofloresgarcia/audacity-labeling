@@ -14,6 +14,7 @@ class TunedOpenL3(pl.LightningModule):
         """
         super().__init__()
         self.classes = list("saxophone,flute,guitar,contrabassoon,bass-clarinet,trombone,cello,oboe,bassoon,banjo,mandolin,tuba,viola,french-horn,english-horn,violin,double-bass,trumpet,clarinet".split(','))
+        self.classes.sort()
 
         self.openl3 = OpenL3Mel128()
         self.fc_seq = nn.Sequential(
@@ -49,8 +50,8 @@ class TunedOpenL3(pl.LightningModule):
         """
         self.eval()
         self.openl3.eval()
-        with torch.no_grad:
-            assert x.ndim == "audio must be mono audio with shape (batch, time)"
+        with torch.no_grad():
+            assert x.ndim == 2, "audio must be mono audio with shape (batch, time)"
 
             if isinstance(x, np.ndarray):
                 x = torch.from_numpy(x)
@@ -63,7 +64,7 @@ class TunedOpenL3(pl.LightningModule):
             x = self.openl3.melspec(x)
 
             # get logits
-            x = self(spec)
+            x = self(x)
             probits = F.softmax(x, dim=1)
 
             yhat = torch.argmax(probits, dim=1, keepdim=False)

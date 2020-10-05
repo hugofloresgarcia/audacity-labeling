@@ -16,32 +16,61 @@ import pandas as pd
 import argparse
 import yaml
 
+# load embedding and classifier model
+model = TunedOpenL3.load_from_checkpoint('./model-weights/tunedl3.pt')
 
 def predict_from_audio_file(path_to_audio, preprocessor_name, classifier_name):
-    print(f'loading model {preprocessor_name}')
-    print(f'loading classifier {classifier_name}')
-
-    # load embedding and classifier model
-    model = TunedOpenL3.load_from_checkpoint('./model-weights/tunedl3.pt')
-
     print(f'about to predict labels for {path_to_audio}...')
     # load audio using torchaudio 
-    audio, sr = torchaudio.load(path_to_audio)
+    audio, old_sr = torchaudio.load(path_to_audio)
+    sr = 48000
+    audio = audio_utils.resample(audio, old_sr, sr)
     audio = audio.detach().numpy()
 
     # split on silence
     audio = audio_utils.downmix(audio)
-    audio_list, intervals = audio_utils.split_on_silence(audio, top_db=80)
+    audio_list, intervals = audio_utils.split_on_silence(audio, top_db=40)
     intervals = intervals/sr
 
     padded_audio = []
-    for aud in audio_list:
-        padded_audio.append(audio_utils.zero_pad(aud, length=sr))
+    padded_intervals = []
+    for aud, interval in zip(audio_list, intervals):
+        aud = audio_utils.zero_pad(aud, length=sr)
+        min_audio_len = 0.1 * sr
 
-    padded_audio = np.stack(padded_audio, axis=0)
+        aud = np.array_split(aud, len(aud)//sr+1)
+
+        # print(aud)
+        aud_sublist = []
+        for a in aud:
+            if len(a) < min_audio_len:
+                continue
+            else:
+                aud_sublist.append(audio_utils.zero_pad(a, length=sr))
+
+        interval_start = interval[0]
+        interval_end = interval[1]
+
+        starts = np.arange(0, len(aud))
+        starts  = starts + interval_start
+        ends = starts  + 1
+        ends[-1] = interval_end
+
+        intervals = np.array([starts, ends]).T
+        padded_intervals.append(intervals)
+
+        aud = np.stack(aud_sublist)
+        print(aud.shape)
+        padded_audio.append(aud)
+
+
+    padded_audio = np.concatenate(padded_audio, axis=0)
+    padded_intervals = np.concatenate(padded_intervals, axis=0)
     
     print('classifying audio...')
-    pred, pred_ts = model.predict(padded_audio, intervals)
+    pred, pred_ts = model.predict(padded_audio, padded_intervals)
+    print(len(pred))
+    print(pred_ts.shape)
 
     print(f'done!\n')
     return pred, pred_ts
