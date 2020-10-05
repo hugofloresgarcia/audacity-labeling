@@ -1,33 +1,8 @@
 ## audacity labeler
 
-## installing the labeler (python 3.7)
-
-cd into our labeler folder:  
-`cd labeler`
-
-(optional) make your very own venv  
-`python3 -m venv venv` then `source venv/bin/activate`
-
-install pip requirements  
-you should really only need:
-```
-torch
-torchaudio
-pytorch_lightning
-numpy
-librosa
-```
-
-### get the model weights (from me)
-
-make sure to put the weight file  on /labeler/model-weights
-
----
-
 ## building audacity (with python labeler)
 I've only tested this on MacOS Catalina (10.15.3)
 
----
 
 ### this chunk is from mac/cmake_build.txt:
 
@@ -53,7 +28,7 @@ cool
 
 install zero-mq library using brew
 
-*** note: *** zero-mq is used to build the client-server model that bridges python and C++. 
+**note:** zero-mq is used to build the client-server model that bridges python and C++. 
 we shouldn't need this once we load the model in C++ using torchscript instead
 
 `brew install zeromq`
@@ -70,6 +45,30 @@ xcodebuild -configuration Debug
 ```
 
 Audacity should now be in /build/bin/Debug/Audacity.app
+
+---
+
+## installing the labeler (python 3.7)
+
+cd into our labeler folder:  
+`cd labeler`
+
+(optional) make your very own venv  
+`python3 -m venv venv` then `source venv/bin/activate`
+
+install pip requirements  
+you should really only need:
+```
+torch
+torchaudio
+pytorch_lightning
+numpy
+librosa
+```
+
+### get the model weights (from me)
+
+make sure to put the weight file  on /labeler/model-weights
 
 ---
 

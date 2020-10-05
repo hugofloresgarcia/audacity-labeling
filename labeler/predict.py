@@ -6,15 +6,12 @@ created by hugo flores garcia on 08/04/2020
 from labeler import classifiers
 from labeler import preprocessors
 from labeler import audio_utils
-from embed import embed
 from labeler.tunedl3 import TunedOpenL3
 
 import numpy as np
 import torch
 import torchaudio
-import pandas as pd
 import argparse
-import yaml
 
 # load embedding and classifier model
 model = TunedOpenL3.load_from_checkpoint('./model-weights/tunedl3.pt')
