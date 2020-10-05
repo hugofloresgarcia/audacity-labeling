@@ -15,7 +15,12 @@ torch
 torchaudio
 pytorch_lightning
 numpy
+librosa
 ```
+
+### get the model weights (from me)
+
+make sure to put the weight file  on /labeler/model-weights
 
 ---
 
