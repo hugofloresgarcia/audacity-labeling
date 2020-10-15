@@ -210,4 +210,5 @@ win/xaudacity.ico
 # interactive audio lab labeler
 *.pb 
 *.pt
+/essentia/
 wxWidgets/
