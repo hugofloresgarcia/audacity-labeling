@@ -332,6 +332,8 @@ list( APPEND SOURCES
       
       labeler/Labeler.cpp
       labeler/Labeler.hpp
+      labeler/Model.hpp
+      labeler/Model.cpp
 
       # Commands
 
