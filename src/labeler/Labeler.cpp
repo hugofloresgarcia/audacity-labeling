@@ -118,9 +118,12 @@ torch::jit::script::Module loadModel(const std::string &filepath) {
 std::vector<std::string> labelTrackEmbeddings(const std::vector<std::vector<essentia::Real>> &embeddings, const std::vector<std::string> &instruments) {
     
     // Load Model
-    std::string modelPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier.pt")).GetFullPath().ToStdString();
+    std::string modelPath = wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString();
     torch::jit::script::Module classifierModel = loadModel(modelPath);
     
+
+    // get class probabilities
+
     int embeddingLength = (int) embeddings[0].size();
     int numAdjacent = 4;
     std::vector<std::string> predictions;
