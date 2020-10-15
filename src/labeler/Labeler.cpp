@@ -21,6 +21,8 @@
 #include "../LabelTrack.h"
 #include "../ProjectHistory.h"
 
+#include "Model.hpp"
+
 
 using namespace essentia::standard;
 
@@ -118,12 +120,9 @@ torch::jit::script::Module loadModel(const std::string &filepath) {
 std::vector<std::string> labelTrackEmbeddings(const std::vector<std::vector<essentia::Real>> &embeddings, const std::vector<std::string> &instruments) {
     
     // Load Model
-    std::string modelPath = wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString();
+    std::string modelPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier.pt")).GetFullPath().ToStdString();
     torch::jit::script::Module classifierModel = loadModel(modelPath);
     
-
-    // get class probabilities
-
     int embeddingLength = (int) embeddings[0].size();
     int numAdjacent = 4;
     std::vector<std::string> predictions;
@@ -238,58 +237,70 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
 void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
     // start logging
 
-    auto &project = context.project;
-    auto &trackFactory = TrackFactory::Get( project );
-    auto &tracks = TrackList::Get( project );
     
-    std::string classifierLabelsPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier_instruments.txt")).GetFullPath().ToStdString();
+    AudioClassificationModel model(wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString());
     
-    // Load audio file as VGGish embeddings
-    std::vector<std::vector<essentia::Real>> embeddings = loadAudioThroughVGGish(filepath);
+    // prepare input tensor (dummy)
+    auto inputAudio = torch::randn({4, 1, 48000});
+    std::vector<std::string> predictions = model.predictInstruments(inputAudio);
+
+    std::ofstream myfile;
+    myfile.open (wxFileName(FileNames::ResourcesDir(), wxT("labeler-log.txt")).GetFullPath().ToStdString());
+    for (const auto &e : predictions) myfile << e << "\n";
+    myfile.close();
+
+    // auto &project = context.project;
+    // auto &trackFactory = TrackFactory::Get( project );
+    // auto &tracks = TrackList::Get( project );
     
-    // Load the classification classes into a vector
-    std::vector<std::string> instruments = loadInstrumentList(classifierLabelsPath);
+    // std::string classifierLabelsPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier_instruments.txt")).GetFullPath().ToStdString();
     
-    // Using the VGGish embeddings and output classes, label the embeddings
-    std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
+    // // Load audio file as VGGish embeddings
+    // std::vector<std::vector<essentia::Real>> embeddings = loadAudioThroughVGGish(filepath);
     
-    // In the event the song was too short to label, don't label it.
-    if (trackLabels.empty()) {
-        return;
-    }
+    // // Load the classification classes into a vector
+    // std::vector<std::string> instruments = loadInstrumentList(classifierLabelsPath);
     
-    // Given embedding-wise labels, create a collection of trackwise labels for each instrument
-    std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
+    // // Using the VGGish embeddings and output classes, label the embeddings
+    // std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
     
-    // Add a Label Track for each class of labels
-    for (auto &labelTrack : labels) {
-        wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
-        wxTextFile labelFile(labelFileName);
+    // // In the event the song was too short to label, don't label it.
+    // if (trackLabels.empty()) {
+    //     return;
+    // }
+    
+    // // Given embedding-wise labels, create a collection of trackwise labels for each instrument
+    // std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
+    
+    // // Add a Label Track for each class of labels
+    // for (auto &labelTrack : labels) {
+    //     wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
+    //     wxTextFile labelFile(labelFileName);
         
-        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
-        if (labelFile.Exists()) {
-            labelFile.Clear();
-        }
-        else {
-            labelFile.Create();
-        }
-        labelFile.Open();
+    //     // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
+    //     if (labelFile.Exists()) {
+    //         labelFile.Clear();
+    //     }
+    //     else {
+    //         labelFile.Create();
+    //     }
+    //     labelFile.Open();
         
-        // Write each timestamp to file
-        for (auto &label : labelTrack.second) {
-            labelFile.AddLine(wxString(label.toStdString()));
-        }
+    //     // Write each timestamp to file
+    //     for (auto &label : labelTrack.second) {
+    //         labelFile.AddLine(wxString(label.toStdString()));
+    //     }
         
-        // Create a new LabelTrack and add it to the project
-        auto newTrack = trackFactory.NewLabelTrack();
-        newTrack->SetName(wxString(labelTrack.first));
-        newTrack->Import(labelFile);
-        tracks.Add(newTrack);
+    //     // Create a new LabelTrack and add it to the project
+    //     auto newTrack = trackFactory.NewLabelTrack();
+    //     newTrack->SetName(wxString(labelTrack.first));
+    //     newTrack->Import(labelFile);
+    //     tracks.Add(newTrack);
         
-        // Record Adding the Track
-        ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
+    //     // Record Adding the Track
+    //     ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
         
-        labelFile.Close();
-        wxRemove(labelFileName);
-    }
+    //     labelFile.Close();
+    //     wxRemove(labelFileName);
+    // }
 }
