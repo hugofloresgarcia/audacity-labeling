@@ -15,12 +15,82 @@
 #include <wx/textfile.h>
 
 #include "Labeler.hpp"
+#include "portaudio.h"
 #include "WaveTrack.h"
 #include "../FileNames.h"
 #include "../commands/CommandContext.h"
 #include "../LabelTrack.h"
 #include "../ProjectHistory.h"
+#include "../WaveClip.h"
+#include "../Track.h"
+#include "../SampleBlock.h"
 
+
+#pragma mark IALLabeler Class Definition
+
+IALLabeler::IALLabeler(const CommandContext &context) : context(context) {}
+
+void IALLabeler::labelTracks() {
+    std::vector<SampleBuffer> waveform = this->fetchProjectAudio();
+}
+
+std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
+    auto &project = this->context.project;
+    TrackList &tracklist = TrackList::Get(project);
+    
+    TrackFactory &trackFactory = TrackFactory::Get(project);
+    SampleBlockFactoryPtr sampleBlockFactory = trackFactory.GetSampleBlockFactory();
+    
+    PaStream *stream;
+    PaError err;
+    err = Pa_Initialize();
+    if (err != paNoError) { raise(1); }
+    
+    PaStreamParameters outputParameters;
+    outputParameters.device = Pa_GetDefaultOutputDevice();
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.channelCount = 1;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+    
+    for (Track *track : tracklist) {
+        if (dynamic_cast<WaveTrack *>(track) != nullptr) {
+            WaveTrack *waveTrack = (WaveTrack *)track;
+            
+            for (WaveClip *clip : waveTrack->GetAllClips()) {
+                WaveClip copyClip(*clip, sampleBlockFactory, true);
+                copyClip.ConvertToSampleFormat(floatSample);
+
+                SampleBuffer buffer(copyClip.GetNumSamples().as_size_t(), floatSample);
+                copyClip.GetSamples(buffer.ptr(), floatSample, copyClip.GetStartSample(), copyClip.GetNumSamples().as_size_t());
+                
+                err = Pa_OpenStream(&stream, NULL, &outputParameters, 44100, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
+                if (err != paNoError) { exit(1); }
+                
+                if (stream) {
+                    err = Pa_StartStream( stream );
+                    if( err != paNoError ) { exit(1); }
+
+                    err = Pa_WriteStream(stream, buffer.ptr(), copyClip.GetNumSamples().as_size_t());
+                    if (err != paNoError) { exit(1); }
+                    
+                    printf("Waiting for playback to finish.\n");
+                    
+                    while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) { Pa_Sleep(100); }
+                    if( err < 0 ) { exit(1); }
+                    
+                    err = Pa_CloseStream( stream );
+                    if( err != paNoError ) { exit(1); }
+                }
+            }
+        }
+    }
+    
+    Pa_Terminate();
+    
+    std::vector<SampleBuffer>ret;
+    return ret;
+}
 
 using namespace essentia::standard;
 
@@ -232,7 +302,7 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
     return audacityLabels;
 }
 
-void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
+void IALLabelerSpace::LabelTrack(const CommandContext &context, const std::string &filepath) {
     // start logging
 
     auto &project = context.project;

@@ -470,7 +470,8 @@ void ImportAudio(const CommandContext &context, bool labelAudio = false)
    }
 
    if (labelAudio) {
-           IALLabeler::LabelTrack(context, fileName.ToStdString());
+       IALLabeler labeler(context);
+       labeler.labelTracks();
    }
 
    window.ZoomAfterImport(nullptr);
