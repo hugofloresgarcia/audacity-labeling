@@ -1,7 +1,14 @@
 #include "Model.hpp"
 
 AudioClassificationModel::AudioClassificationModel(const std::string &filepath){
+    // logger
+    classificationLogger.open (wxFileName(FileNames::ResourcesDir(), wxT("labeler-log.txt")).GetFullPath().ToStdString());
+    classificationLogger << "loading jit model" << "\n";
+
     jitModel = loadModel(filepath);
+
+    classificationLogger << "jit model loaded" << "\n";
+
     // hardcoding these here for now
     classNames  = {
         "saxophone", "flute" , "guitar", "contrabassoon",
@@ -12,6 +19,8 @@ AudioClassificationModel::AudioClassificationModel(const std::string &filepath){
     };
     // sort classnames
     std::sort(classNames.begin(), classNames.end());
+
+    classificationLogger << "classname set" << "\n";
 }   
 
 /*
@@ -24,6 +33,7 @@ torch::jit::script::Module AudioClassificationModel::loadModel(const std::string
     }
     catch (const c10::Error& e) {
         std::cerr << "Error Loading Model" << std::endl;
+        classificationLogger << e.what() << "\n";
         throw e;
     }
     
@@ -34,10 +44,12 @@ torch::jit::script::Module AudioClassificationModel::loadModel(const std::string
 Downsample audio tensor
 the tensor must be shape (batch, channels, time)
 */
-torch::Tensor AudioClassificationModel::downsample(const torch::Tensor audioBatch) {
+torch::Tensor AudioClassificationModel::downmix(const torch::Tensor audioBatch) {
     assert (audioBatch.dim() == 3);
+
     // take the mean over the channel dimension
     torch::Tensor downmixedAudio =  audioBatch.mean(1, true);
+    return downmixedAudio;
 }
 
 /*
@@ -76,4 +88,30 @@ std::vector<std::string> AudioClassificationModel::predictInstruments(const torc
     }
 
     return predictions;
+}
+
+bool AudioClassificationModel::modelTest(){
+
+    try{
+        // prepare input tensor (dummy)
+        classificationLogger << "creating input audio" << "\n";
+        auto inputAudio = torch::randn({4, 2, 48000});
+
+        classificationLogger << " downmixing audio" << "\n";
+        inputAudio = downmix(inputAudio);
+
+        classificationLogger << "doing predictions:" << "\n";
+        std::vector<std::string> predictions = predictInstruments(inputAudio);
+        
+        // log labels
+        for (const auto &e : predictions) classificationLogger << e << "\n";
+    }
+    catch (const std::exception &e){ // hopefully, the exception subclasses the std exception so this would work
+        classificationLogger << e.what() << "\n";
+    }
+    catch (...) {
+        classificationLogger << "an unknown error occured" << "\n";
+    }
+
+    classificationLogger.close();
 }
