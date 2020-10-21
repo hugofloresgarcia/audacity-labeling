@@ -235,63 +235,59 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
 }
 
 void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
-    // start logging
 
-    AudioClassificationModel model(wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString());
-    model.modelTest();
-
-    // auto &project = context.project;
-    // auto &trackFactory = TrackFactory::Get( project );
-    // auto &tracks = TrackList::Get( project );
+    auto &project = context.project;
+    auto &trackFactory = TrackFactory::Get( project );
+    auto &tracks = TrackList::Get( project );
     
-    // std::string classifierLabelsPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier_instruments.txt")).GetFullPath().ToStdString();
+    std::string classifierLabelsPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier_instruments.txt")).GetFullPath().ToStdString();
     
-    // // Load audio file as VGGish embeddings
-    // std::vector<std::vector<essentia::Real>> embeddings = loadAudioThroughVGGish(filepath);
+    // Load audio file as VGGish embeddings
+    std::vector<std::vector<essentia::Real>> embeddings = loadAudioThroughVGGish(filepath);
     
-    // // Load the classification classes into a vector
-    // std::vector<std::string> instruments = loadInstrumentList(classifierLabelsPath);
+    // Load the classification classes into a vector
+    std::vector<std::string> instruments = loadInstrumentList(classifierLabelsPath);
     
-    // // Using the VGGish embeddings and output classes, label the embeddings
-    // std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
+    // Using the VGGish embeddings and output classes, label the embeddings
+    std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
     
-    // // In the event the song was too short to label, don't label it.
-    // if (trackLabels.empty()) {
-    //     return;
-    // }
+    // In the event the song was too short to label, don't label it.
+    if (trackLabels.empty()) {
+        return;
+    }
     
-    // // Given embedding-wise labels, create a collection of trackwise labels for each instrument
-    // std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
+    // Given embedding-wise labels, create a collection of trackwise labels for each instrument
+    std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
     
-    // // Add a Label Track for each class of labels
-    // for (auto &labelTrack : labels) {
-    //     wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
-    //     wxTextFile labelFile(labelFileName);
+    // Add a Label Track for each class of labels
+    for (auto &labelTrack : labels) {
+        wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
+        wxTextFile labelFile(labelFileName);
         
-    //     // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
-    //     if (labelFile.Exists()) {
-    //         labelFile.Clear();
-    //     }
-    //     else {
-    //         labelFile.Create();
-    //     }
-    //     labelFile.Open();
+        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
+        if (labelFile.Exists()) {
+            labelFile.Clear();
+        }
+        else {
+            labelFile.Create();
+        }
+        labelFile.Open();
         
-    //     // Write each timestamp to file
-    //     for (auto &label : labelTrack.second) {
-    //         labelFile.AddLine(wxString(label.toStdString()));
-    //     }
+        // Write each timestamp to file
+        for (auto &label : labelTrack.second) {
+            labelFile.AddLine(wxString(label.toStdString()));
+        }
         
-    //     // Create a new LabelTrack and add it to the project
-    //     auto newTrack = trackFactory.NewLabelTrack();
-    //     newTrack->SetName(wxString(labelTrack.first));
-    //     newTrack->Import(labelFile);
-    //     tracks.Add(newTrack);
+        // Create a new LabelTrack and add it to the project
+        auto newTrack = trackFactory.NewLabelTrack();
+        newTrack->SetName(wxString(labelTrack.first));
+        newTrack->Import(labelFile);
+        tracks.Add(newTrack);
         
-    //     // Record Adding the Track
-    //     ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
+        // Record Adding the Track
+        ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
         
-    //     labelFile.Close();
-    //     wxRemove(labelFileName);
-    // }
+        labelFile.Close();
+        wxRemove(labelFileName);
+    }
 }
