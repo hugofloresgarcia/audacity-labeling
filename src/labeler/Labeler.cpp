@@ -237,17 +237,8 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
 void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
     // start logging
 
-    
     AudioClassificationModel model(wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString());
-    
-    // prepare input tensor (dummy)
-    auto inputAudio = torch::randn({4, 1, 48000});
-    std::vector<std::string> predictions = model.predictInstruments(inputAudio);
-
-    std::ofstream myfile;
-    myfile.open (wxFileName(FileNames::ResourcesDir(), wxT("labeler-log.txt")).GetFullPath().ToStdString());
-    for (const auto &e : predictions) myfile << e << "\n";
-    myfile.close();
+    model.modelTest();
 
     // auto &project = context.project;
     // auto &trackFactory = TrackFactory::Get( project );
