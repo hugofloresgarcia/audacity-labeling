@@ -63,9 +63,23 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                 WaveClip copyClip(*clip, sampleBlockFactory, true);
                 copyClip.ConvertToSampleFormat(floatSample);
 
+                // // hugo: resample to 48kHz
+                ProgressDialog* progress;
+                copyClip.Resample(48000, progress);
+                // //
+
                 SampleBuffer buffer(copyClip.GetNumSamples().as_size_t(), floatSample);
                 copyClip.GetSamples(buffer.ptr(), floatSample, copyClip.GetStartSample(), copyClip.GetNumSamples().as_size_t());
                 
+                // // hugo: load model
+                AudioClassificationModel model(wxFileName(FileNames::ResourcesDir(), wxT("tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString());
+
+                // // convert buffer to tensor
+                auto options = torch::TensorOptions().dtype(torch::kFloat64);
+                torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);
+                
+
+
                 err = Pa_OpenStream(&stream, NULL, &outputParameters, 44100, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
                 if (err != paNoError) { exit(1); }
                 
@@ -173,25 +187,11 @@ std::vector<std::string>loadInstrumentList(const std::string &filepath) {
 }
 
 
-torch::jit::script::Module loadModel(const std::string &filepath) {
-    torch::jit::script::Module classifierModel;
-    try {
-        classifierModel = torch::jit::load(filepath);
-    }
-    catch (const c10::Error& e) {
-        std::cerr << "Error Loading Model" << std::endl;
-        throw e;
-    }
-    
-    return classifierModel;
-}
-
-
 std::vector<std::string> labelTrackEmbeddings(const std::vector<std::vector<essentia::Real>> &embeddings, const std::vector<std::string> &instruments) {
     
-    // Load Model
+    // // Load Model
     std::string modelPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier.pt")).GetFullPath().ToStdString();
-    torch::jit::script::Module classifierModel = loadModel(modelPath);
+    torch::jit::script::Module classifierModel;
     
     int embeddingLength = (int) embeddings[0].size();
     int numAdjacent = 4;
@@ -236,7 +236,6 @@ std::vector<std::string> labelTrackEmbeddings(const std::vector<std::vector<esse
     return predictions;
 }
 
-
 std::vector<AudacityLabel> coalesceLabels(const std::vector<AudacityLabel> &labels) {
     std::vector<AudacityLabel> coalescedLabels;
     
@@ -264,7 +263,6 @@ std::vector<AudacityLabel> coalesceLabels(const std::vector<AudacityLabel> &labe
     
     return coalescedLabels;
 }
-
 
 std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std::vector<std::string> &embeddingLabels) {
     
@@ -304,12 +302,8 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
     return audacityLabels;
 }
 
-<<<<<<< HEAD
-void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
-=======
 void IALLabelerSpace::LabelTrack(const CommandContext &context, const std::string &filepath) {
     // start logging
->>>>>>> 8411dbd36... Found audio in Audacity
 
     auto &project = context.project;
     auto &trackFactory = TrackFactory::Get( project );

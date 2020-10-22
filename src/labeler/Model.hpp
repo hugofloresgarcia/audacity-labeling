@@ -32,8 +32,6 @@ class AudioClassificationModel{
 
         const std::vector<std::string> &getClassNames() {return classNames;}
 
-        torch::Tensor fromBuffer()
-
         torch::Tensor downmix(const torch::Tensor audioBatch);
 
         torch::Tensor predictClassProbabilities(const torch::Tensor audioBatch);
