@@ -36,6 +36,22 @@ torch::jit::script::Module AudioClassificationModel::loadModel(const std::string
         classificationLogger << e.what() << "\n";
         throw e;
     }
+    // ask bryan for free license
+    // additional files
+    // look at create and dified dates, if the label file is newer, then don't make it again
+    // some flue, then some trumpet, then some bass (multiple instruments)
+    // I'm gonna load up three tracks
+    // one thing, on things, several things
+    // cello double bass probelm
+    // make one of these more than note
+    // use saved labels (modified
+    
+    // this is where its at
+    // now we wanna make it navigabele
+
+    // think abt where the v1 might go for a conference
+
+    // me (conferences): assets, sigaccess, ICAD, CHI (more user study)
     
     return classifierModel;
 }
