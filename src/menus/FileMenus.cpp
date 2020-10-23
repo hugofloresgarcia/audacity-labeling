@@ -30,7 +30,7 @@
 #include "../widgets/wxPanelWrapper.h"
 
 // Added for the TrackLabeler
-#include "../labeler/Labeler.hpp"
+#include "../labeler/IALLabeler.hpp"
 
 #ifdef USE_MIDI
 #include "../import/ImportMIDI.h"

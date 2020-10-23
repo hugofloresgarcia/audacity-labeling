@@ -1,17 +1,22 @@
 //
-//  Labeler.hpp
+//  IALLabeler.hpp
 //  Audacity
 //
 //  Created by Jack Wiig on 4/28/20.
 //
 
-#ifndef Labeler_hpp
-#define Labeler_hpp
+#ifndef IALLabeler_hpp
+#define IALLabeler_hpp
 
 #include <stdio.h>
+#include <unordered_map>
+
+#include "IALAudioFrame.hpp"
 
 class CommandContext;
 class SampleBuffer;
+class WaveTrack;
+
 
 class IALLabeler {
     const CommandContext &context;
@@ -23,14 +28,8 @@ public:
     
 private:
     std::vector<SampleBuffer> fetchProjectAudio();
+    std::unordered_map<int, IALAudioFrameTrack> tracks;
 };
-
-namespace IALLabelerSpace {
-
-void LabelTrack(const CommandContext &context, const std::string &audioFilePath);
-// std::ofstream LabelLogger;
-void LabelTracks(const CommandContext &context);
-}
 
 
 #endif

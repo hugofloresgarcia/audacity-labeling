@@ -330,10 +330,12 @@ list( APPEND SOURCES
 
       # IAL Labeler
       
-      labeler/Labeler.cpp
-      labeler/Labeler.hpp
       labeler/IALModel.hpp
       labeler/IALModel.cpp
+      labeler/IALLabeler.cpp
+      labeler/IALLabeler.hpp
+      labeler/IALAudioFrame.cpp
+      labeler/IALAudioFrame.hpp
 
       # Commands
 
