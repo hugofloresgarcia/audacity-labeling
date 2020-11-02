@@ -74,7 +74,7 @@ enum LegacyPadding : int {
 CAFFE2_API bool LegacyPadding_IsValid(int value);
 constexpr LegacyPadding LegacyPadding_MIN = NOTSET;
 constexpr LegacyPadding LegacyPadding_MAX = CAFFE_LEGACY_POOLING;
-constexpr int LegacyPadding_ARRAYSIZE = LegacyPadding_MAX + 1;
+constexpr int LegacyPadding_ARRAYSIZE = static_cast<int>(LegacyPadding_MAX) + 1;
 
 CAFFE2_API const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* LegacyPadding_descriptor();
 template<typename T>

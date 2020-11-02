@@ -1123,8 +1123,10 @@ class CAFFE2_API MetaNetDef :
     kApplicationSpecificInfoFieldNumber = 5,
     kBlobsOrderFieldNumber = 6,
     kPreLoadBlobsFieldNumber = 7,
+    kRequestOnlyEmbeddingsFieldNumber = 9,
     kModelInfoFieldNumber = 3,
     kTensorBoundShapesFieldNumber = 8,
+    kAotConfigFieldNumber = 10,
   };
   // repeated .caffe2.BlobsMap blobs = 1;
   int blobs_size() const;
@@ -1246,6 +1248,30 @@ class CAFFE2_API MetaNetDef :
   std::string* _internal_add_preloadblobs();
   public:
 
+  // repeated string requestOnlyEmbeddings = 9;
+  int requestonlyembeddings_size() const;
+  private:
+  int _internal_requestonlyembeddings_size() const;
+  public:
+  void clear_requestonlyembeddings();
+  const std::string& requestonlyembeddings(int index) const;
+  std::string* mutable_requestonlyembeddings(int index);
+  void set_requestonlyembeddings(int index, const std::string& value);
+  void set_requestonlyembeddings(int index, std::string&& value);
+  void set_requestonlyembeddings(int index, const char* value);
+  void set_requestonlyembeddings(int index, const char* value, size_t size);
+  std::string* add_requestonlyembeddings();
+  void add_requestonlyembeddings(const std::string& value);
+  void add_requestonlyembeddings(std::string&& value);
+  void add_requestonlyembeddings(const char* value);
+  void add_requestonlyembeddings(const char* value, size_t size);
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>& requestonlyembeddings() const;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>* mutable_requestonlyembeddings();
+  private:
+  const std::string& _internal_requestonlyembeddings(int index) const;
+  std::string* _internal_add_requestonlyembeddings();
+  public:
+
   // optional .caffe2.ModelInfo modelInfo = 3;
   bool has_modelinfo() const;
   private:
@@ -1276,6 +1302,21 @@ class CAFFE2_API MetaNetDef :
   ::caffe2::TensorBoundShapes* _internal_mutable_tensorboundshapes();
   public:
 
+  // optional .caffe2.AOTConfig aotConfig = 10;
+  bool has_aotconfig() const;
+  private:
+  bool _internal_has_aotconfig() const;
+  public:
+  void clear_aotconfig();
+  const ::caffe2::AOTConfig& aotconfig() const;
+  ::caffe2::AOTConfig* release_aotconfig();
+  ::caffe2::AOTConfig* mutable_aotconfig();
+  void set_allocated_aotconfig(::caffe2::AOTConfig* aotconfig);
+  private:
+  const ::caffe2::AOTConfig& _internal_aotconfig() const;
+  ::caffe2::AOTConfig* _internal_mutable_aotconfig();
+  public:
+
   // @@protoc_insertion_point(class_scope:caffe2.MetaNetDef)
  private:
   class _Internal;
@@ -1289,8 +1330,10 @@ class CAFFE2_API MetaNetDef :
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::caffe2::StringMap > applicationspecificinfo_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> blobsorder_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> preloadblobs_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string> requestonlyembeddings_;
   ::caffe2::ModelInfo* modelinfo_;
   ::caffe2::TensorBoundShapes* tensorboundshapes_;
+  ::caffe2::AOTConfig* aotconfig_;
   friend struct ::TableStruct_caffe2_2fproto_2fmetanet_2eproto;
 };
 // ===================================================================
@@ -2638,6 +2681,136 @@ inline void MetaNetDef::set_allocated_tensorboundshapes(::caffe2::TensorBoundSha
   }
   tensorboundshapes_ = tensorboundshapes;
   // @@protoc_insertion_point(field_set_allocated:caffe2.MetaNetDef.tensorBoundShapes)
+}
+
+// repeated string requestOnlyEmbeddings = 9;
+inline int MetaNetDef::_internal_requestonlyembeddings_size() const {
+  return requestonlyembeddings_.size();
+}
+inline int MetaNetDef::requestonlyembeddings_size() const {
+  return _internal_requestonlyembeddings_size();
+}
+inline void MetaNetDef::clear_requestonlyembeddings() {
+  requestonlyembeddings_.Clear();
+}
+inline std::string* MetaNetDef::add_requestonlyembeddings() {
+  // @@protoc_insertion_point(field_add_mutable:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  return _internal_add_requestonlyembeddings();
+}
+inline const std::string& MetaNetDef::_internal_requestonlyembeddings(int index) const {
+  return requestonlyembeddings_.Get(index);
+}
+inline const std::string& MetaNetDef::requestonlyembeddings(int index) const {
+  // @@protoc_insertion_point(field_get:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  return _internal_requestonlyembeddings(index);
+}
+inline std::string* MetaNetDef::mutable_requestonlyembeddings(int index) {
+  // @@protoc_insertion_point(field_mutable:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  return requestonlyembeddings_.Mutable(index);
+}
+inline void MetaNetDef::set_requestonlyembeddings(int index, const std::string& value) {
+  // @@protoc_insertion_point(field_set:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  requestonlyembeddings_.Mutable(index)->assign(value);
+}
+inline void MetaNetDef::set_requestonlyembeddings(int index, std::string&& value) {
+  // @@protoc_insertion_point(field_set:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  requestonlyembeddings_.Mutable(index)->assign(std::move(value));
+}
+inline void MetaNetDef::set_requestonlyembeddings(int index, const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  requestonlyembeddings_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline void MetaNetDef::set_requestonlyembeddings(int index, const char* value, size_t size) {
+  requestonlyembeddings_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline std::string* MetaNetDef::_internal_add_requestonlyembeddings() {
+  return requestonlyembeddings_.Add();
+}
+inline void MetaNetDef::add_requestonlyembeddings(const std::string& value) {
+  requestonlyembeddings_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline void MetaNetDef::add_requestonlyembeddings(std::string&& value) {
+  requestonlyembeddings_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline void MetaNetDef::add_requestonlyembeddings(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  requestonlyembeddings_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline void MetaNetDef::add_requestonlyembeddings(const char* value, size_t size) {
+  requestonlyembeddings_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:caffe2.MetaNetDef.requestOnlyEmbeddings)
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
+MetaNetDef::requestonlyembeddings() const {
+  // @@protoc_insertion_point(field_list:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  return requestonlyembeddings_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>*
+MetaNetDef::mutable_requestonlyembeddings() {
+  // @@protoc_insertion_point(field_mutable_list:caffe2.MetaNetDef.requestOnlyEmbeddings)
+  return &requestonlyembeddings_;
+}
+
+// optional .caffe2.AOTConfig aotConfig = 10;
+inline bool MetaNetDef::_internal_has_aotconfig() const {
+  bool value = (_has_bits_[0] & 0x00000004u) != 0;
+  PROTOBUF_ASSUME(!value || aotconfig_ != nullptr);
+  return value;
+}
+inline bool MetaNetDef::has_aotconfig() const {
+  return _internal_has_aotconfig();
+}
+inline const ::caffe2::AOTConfig& MetaNetDef::_internal_aotconfig() const {
+  const ::caffe2::AOTConfig* p = aotconfig_;
+  return p != nullptr ? *p : *reinterpret_cast<const ::caffe2::AOTConfig*>(
+      &::caffe2::_AOTConfig_default_instance_);
+}
+inline const ::caffe2::AOTConfig& MetaNetDef::aotconfig() const {
+  // @@protoc_insertion_point(field_get:caffe2.MetaNetDef.aotConfig)
+  return _internal_aotconfig();
+}
+inline ::caffe2::AOTConfig* MetaNetDef::release_aotconfig() {
+  // @@protoc_insertion_point(field_release:caffe2.MetaNetDef.aotConfig)
+  _has_bits_[0] &= ~0x00000004u;
+  ::caffe2::AOTConfig* temp = aotconfig_;
+  aotconfig_ = nullptr;
+  return temp;
+}
+inline ::caffe2::AOTConfig* MetaNetDef::_internal_mutable_aotconfig() {
+  _has_bits_[0] |= 0x00000004u;
+  if (aotconfig_ == nullptr) {
+    auto* p = CreateMaybeMessage<::caffe2::AOTConfig>(GetArenaNoVirtual());
+    aotconfig_ = p;
+  }
+  return aotconfig_;
+}
+inline ::caffe2::AOTConfig* MetaNetDef::mutable_aotconfig() {
+  // @@protoc_insertion_point(field_mutable:caffe2.MetaNetDef.aotConfig)
+  return _internal_mutable_aotconfig();
+}
+inline void MetaNetDef::set_allocated_aotconfig(::caffe2::AOTConfig* aotconfig) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaNoVirtual();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(aotconfig_);
+  }
+  if (aotconfig) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena = nullptr;
+    if (message_arena != submessage_arena) {
+      aotconfig = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, aotconfig, submessage_arena);
+    }
+    _has_bits_[0] |= 0x00000004u;
+  } else {
+    _has_bits_[0] &= ~0x00000004u;
+  }
+  aotconfig_ = aotconfig;
+  // @@protoc_insertion_point(field_set_allocated:caffe2.MetaNetDef.aotConfig)
 }
 
 #ifdef __GNUC__

@@ -9,11 +9,11 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set_property(TARGET gloo APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 set_target_properties(gloo PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
-  IMPORTED_LOCATION_RELEASE "/pytorch/torch/lib/libgloo.a"
+  IMPORTED_LOCATION_RELEASE "/Users/distiller/project/pytorch/torch/lib/libgloo.a"
   )
 
 list(APPEND _IMPORT_CHECK_TARGETS gloo )
-list(APPEND _IMPORT_CHECK_FILES_FOR_gloo "/pytorch/torch/lib/libgloo.a" )
+list(APPEND _IMPORT_CHECK_FILES_FOR_gloo "/Users/distiller/project/pytorch/torch/lib/libgloo.a" )
 
 # Commands beyond this point should not need to know the version.
 set(CMAKE_IMPORT_FILE_VERSION)

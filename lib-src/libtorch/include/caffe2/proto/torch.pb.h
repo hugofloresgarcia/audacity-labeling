@@ -96,7 +96,7 @@ enum ProtoVersion : int {
 CAFFE2_API bool ProtoVersion_IsValid(int value);
 constexpr ProtoVersion ProtoVersion_MIN = PROTO_VERSION_NEWEST;
 constexpr ProtoVersion ProtoVersion_MAX = PROTO_VERSION_NEWEST;
-constexpr int ProtoVersion_ARRAYSIZE = ProtoVersion_MAX + 1;
+constexpr int ProtoVersion_ARRAYSIZE = static_cast<int>(ProtoVersion_MAX) + 1;
 
 CAFFE2_API const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* ProtoVersion_descriptor();
 template<typename T>

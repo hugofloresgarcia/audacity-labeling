@@ -86,7 +86,7 @@ if(NOT ON)
   list(APPEND TORCH_LIBRARIES ${CLOG_LIBRARY})
 endif()
 
-if(0)
+if(OFF)
   if(MSVC)
     set(NVTOOLEXT_HOME "C:/Program Files/NVIDIA Corporation/NvToolsExt")
     if($ENV{NVTOOLEXT_HOME})
@@ -119,7 +119,7 @@ endif()
 
 # When we build libtorch with the old GCC ABI, dependent libraries must too.
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  set(TORCH_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0")
+  set(TORCH_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=")
 endif()
 
 find_library(TORCH_LIBRARY torch PATHS "${TORCH_INSTALL_PREFIX}/lib")

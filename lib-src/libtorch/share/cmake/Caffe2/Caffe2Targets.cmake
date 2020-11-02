@@ -4,7 +4,7 @@ if("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" LESS 2.5)
    message(FATAL_ERROR "CMake >= 2.6.0 required")
 endif()
 cmake_policy(PUSH)
-cmake_policy(VERSION 2.6)
+cmake_policy(VERSION 2.6...3.17)
 #----------------------------------------------------------------
 # Generated CMake target import file.
 #----------------------------------------------------------------
@@ -72,7 +72,7 @@ set_target_properties(torch_cpu_library PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "\$<TARGET_PROPERTY:torch_cpu,INTERFACE_COMPILE_DEFINITIONS>"
   INTERFACE_COMPILE_OPTIONS "\$<TARGET_PROPERTY:torch_cpu,INTERFACE_COMPILE_OPTIONS>"
   INTERFACE_INCLUDE_DIRECTORIES "\$<TARGET_PROPERTY:torch_cpu,INTERFACE_INCLUDE_DIRECTORIES>"
-  INTERFACE_LINK_LIBRARIES "-Wl,--no-as-needed,\$<TARGET_FILE:torch_cpu> -Wl,--as-needed;\$<TARGET_PROPERTY:torch_cpu,INTERFACE_LINK_LIBRARIES>"
+  INTERFACE_LINK_LIBRARIES "torch_cpu;\$<TARGET_PROPERTY:torch_cpu,INTERFACE_LINK_LIBRARIES>"
   INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "\$<TARGET_PROPERTY:torch_cpu,INTERFACE_SYSTEM_INCLUDE_DIRECTORIES>"
 )
 
@@ -90,7 +90,7 @@ set_target_properties(torch_library PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "\$<TARGET_PROPERTY:torch,INTERFACE_COMPILE_DEFINITIONS>"
   INTERFACE_COMPILE_OPTIONS "\$<TARGET_PROPERTY:torch,INTERFACE_COMPILE_OPTIONS>"
   INTERFACE_INCLUDE_DIRECTORIES "\$<TARGET_PROPERTY:torch,INTERFACE_INCLUDE_DIRECTORIES>"
-  INTERFACE_LINK_LIBRARIES "-Wl,--no-as-needed,\$<TARGET_FILE:torch> -Wl,--as-needed;\$<TARGET_PROPERTY:torch,INTERFACE_LINK_LIBRARIES>"
+  INTERFACE_LINK_LIBRARIES "torch;\$<TARGET_PROPERTY:torch,INTERFACE_LINK_LIBRARIES>"
   INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "\$<TARGET_PROPERTY:torch,INTERFACE_SYSTEM_INCLUDE_DIRECTORIES>"
 )
 
@@ -127,7 +127,7 @@ but not all the files it references.
 endforeach()
 unset(_IMPORT_CHECK_TARGETS)
 
-# Make sure the targets which have been exported in some other 
+# Make sure the targets which have been exported in some other
 # export set exist.
 unset(${CMAKE_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE_targets)
 foreach(_target "protobuf::libprotobuf" )

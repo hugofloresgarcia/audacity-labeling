@@ -4,11 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "(lldb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/Users/hugoffg/Documents/lab/audacity-labeling/build/bin/Release/Audacity.app/Contents/MacOS/Audacity",
+            "program": "/Users/hugoffg/Documents/lab/audacity-labeling/build/bin/Debug/Audacity.app/Contents/MacOS/Audacity",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
