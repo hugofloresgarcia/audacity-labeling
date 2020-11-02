@@ -1,29 +1,6 @@
 #include "IALModel.hpp"
 
 
-// NOTE: would be better to specify filepaths for both 
-// the compiled model AND the instruments. 
-/*
-@brief: creates a classifier instance
-@params:
-    std::string &modelPath: path to .pt file (must be a torch::jit model)
-*/
-IALModel::IALModel(const std::string &modelPath){
-    jitModel = loadModel(modelPath);
-
-    // hardcoding these here for now
-    instruments  = {
-        // these are the medleydb classes
-        "accordion","acoustic guitar","alto saxophone","auxiliary percussion","bamboo flute","banjo","baritone saxophone","bass clarinet","bass drum","bassoon","bongo","brass section","cello","clarinet","clean electric guitar","distorted electric guitar","dizi","double bass","drum machine","drum set","electric bass","electric piano","erhu","female vocalist","flute","french horn","glockenspiel","gong","gu","guzheng","harmonica","harp","horn section","lap steel guitar","male vocalist","mandolin","melodica","oboe","other","oud","percussion","piano","piccolo","soprano saxophone","string section","synthesizer","tabla","tenor saxophone","timpani","trombone","trumpet","tuba","vibraphone","viola","violin","vocalists","yangqin","zhongruan",
-        // these are the philharmonia classes
-        // "saxophone", "flute" , "guitar", "contrabassoon",
-        // "bass-clarinet","trombone","cello","oboe",
-        // "bassoon", "banjo", "mandolin", "tuba", "viola",
-        // "french-horn", "english-horn", "violin", "double-bass",
-        // "trumpet", "clarinet"
-    };
-}
-
 /*
 @brief: creates a classifier instance
 @params:
