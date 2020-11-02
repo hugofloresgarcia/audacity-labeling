@@ -17,9 +17,9 @@ class IALModel{
 
     public:
         // constructor: IALModel model(wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString());
-        IALModel(const std::string &filepath);
+        IALModel(const std::string &modelPath, const std::string &instrumentListPath);
 
-        const std::vector<std::string> &getClassNames() {return classNames;}
+        const std::vector<std::string> &getInstrumentList() {return instruments;}
         const int getChunkLen() {return chunkLen;}
 
         torch::Tensor downmix(const torch::Tensor audioBatch);

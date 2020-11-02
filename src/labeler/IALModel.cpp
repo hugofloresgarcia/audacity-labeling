@@ -87,7 +87,7 @@ torch::Tensor IALModel::padAndReshape(const torch::Tensor audio){
     // RIGHT: pad with zeros to meet length
     int padLength = ceil(length / chunkLen) * chunkLen - length;
     torch::Tensor padTensor = torch::zeros({padLength});
-    torch::Tensor reshapedAudio = torch::cat({audio, padTensor})
+    torch::Tensor reshapedAudio = torch::cat({audio, padTensor});
 
     reshapedAudio = reshapedAudio.reshape({-1, 1, chunkLen});
     return reshapedAudio;

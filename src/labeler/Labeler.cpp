@@ -66,7 +66,7 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                 // reshape into (batch, channels, sample)
                 audio = model.padAndReshape(audio);
                 // get back class labels from model
-                std::vector<std::string> predictions = model.predictInstruments(audio);       
+                std::vector<std::string> predictions = model.predictInstruments(audio, /*confidenceThreshold: */0.3);       
                 for (const auto &e : predictions) std::cout << e << "\n";
                 // ******************]
             }
