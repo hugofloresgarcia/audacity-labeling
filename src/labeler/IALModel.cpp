@@ -1,4 +1,4 @@
-#include "Model.hpp"
+#include "IALModel.hpp"
 
 
 // NOTE: would be better to specify filepaths for both 
@@ -17,7 +17,7 @@ IALModel::IALModel(const std::string &filepath){
     //    "french-horn", "english-horn", "violin", "double-bass",
     //    "trumpet", "clarinet"
     };
-    // ALWAYS sort classnames
+    // sort classnames
     std::sort(classNames.begin(), classNames.end());
 }
 
@@ -35,9 +35,7 @@ torch::jit::script::Module IALModel::loadModel(const std::string &filepath) {
         std::cout << e.what() << "\n";
         throw e;
     }
-    // ask bryan for free license
-    // me (conferences): assets, sigaccess, ICAD, CHI (more user study)
-    
+
     return classifierModel;
 }
 
