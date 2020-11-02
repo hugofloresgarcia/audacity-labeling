@@ -3,8 +3,13 @@
 
 // NOTE: would be better to specify filepaths for both 
 // the compiled model AND the instruments. 
-IALModel::IALModel(const std::string &filepath){
-    jitModel = loadModel(filepath);
+/*
+@brief: creates a classifier instance
+@params:
+    std::string &modelPath: path to .pt file (must be a torch::jit model)
+*/
+IALModel::IALModel(const std::string &modelPath){
+    jitModel = loadModel(modelPath);
 
     // hardcoding these here for now
     classNames  = {
@@ -22,7 +27,7 @@ IALModel::IALModel(const std::string &filepath){
 }
 
 /*
-load a classifier model
+@brief: returns a torch::jit::model specified by @param std::string filepath
 */
 torch::jit::script::Module IALModel::loadModel(const std::string &filepath) {
     torch::jit::script::Module classifierModel;
@@ -56,26 +61,33 @@ torch::Tensor IALModel::downmix(const torch::Tensor audioBatch) {
 }
 
 /*
-reshape from blob to size (batch, channels, time)
-with each batch having shape (1, 48000)
-audio that comes in needs to be MONO already and should be shape 
-(samples,)
+@brief: pads an audio tensor with shape (samples,)
+     with the necessary zeros and then reshapes to (batch, 1, sampleRate)
+@params:
+    torch::Tensor audio: MONO audio tensor with shape (samples,)
+@returns:
+    torch::Tensor reshapedAudio: audio tensor with shape (batch, 1, sampleRate)
 */
-torch::Tensor IALModel::reshapeFromBlob(const torch::Tensor audio){
-
+torch::Tensor IALModel::padAndReshape(const torch::Tensor audio){
     auto length = audio.sizes()[0];
-    int newLength = length - length % 48000;
     
-    // debug: log the first 200 samples
-    // for (int i = 0; i < 200; i++) std::cout << audio.index(torch::indexing::TensorIndex(i)) << " ";
-    
-    torch::Tensor reshapedAudio = audio.index({torch::indexing::Slice(0, newLength, 1)});
-    reshapedAudio = reshapedAudio.reshape({-1, 1, 48000});
+    // RIGHT: pad with zeros to meet length
+    int padLength = ceil(length / sampleRate) * sampleRate - length;
+    torch::Tensor padTensor = torch::zeros({padLength});
+    torch::Tensor reshapedAudio = torch::cat({audio, padTensor})
+
+    reshapedAudio = reshapedAudio.reshape({-1, 1, sampleRate});
     return reshapedAudio;
 }
 
-/*
-returns probits with shape (batch, n_classes)
+/* 
+TODO: the already-compiled models return log-probabilities. 
+this should be fixed on the python side though, to keep this class architecture agnostic. 
+@brief: forward pass through the model and get raw class probabilities as output
+@params:
+    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, sampleRate)
+@returns:
+    torch::Tensor probits: per-class probabilities with shape (batch, n_classes)
 */
 torch::Tensor IALModel::predictClassProbabilities(const torch::Tensor audioBatch){
     std::vector<torch::jit::IValue> inputs;
@@ -87,7 +99,15 @@ torch::Tensor IALModel::predictClassProbabilities(const torch::Tensor audioBatch
     return probits;
 }
 
-std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioBatch){
+/*
+@briefs: forward pass through the model and get a list of classes with the highest probabilities for every instance in the batch. 
+@params: 
+    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, sampleRate)
+    float confidenceThreshold: probabilities under this value will be labeled 'not-sure'
+@returns:  
+    std::vector<std::string> predictions: list of class predictions for every instance in the batch
+*/
+std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioBatch, float confidenceThreshold = 0.3){
     auto probits = predictClassProbabilities(audioBatch);
     auto [confidences, indices] = probits.max(1, false);
 
@@ -100,7 +120,7 @@ std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioB
 
         // return a not-sure if the probability is less than 0.3
         std::string prediction;
-        if (conf < 0.3){
+        if (conf < confidenceThreshold){
             prediction = "not-sure";
         } else {
             prediction = classNames.at(int(idx));
