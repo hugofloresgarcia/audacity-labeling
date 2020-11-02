@@ -17,6 +17,7 @@ Paul Licameli split from ProjectManager.cpp
 #include "UndoManager.h"
 #include "ViewInfo.h"
 #include "WaveTrack.h"
+#include "labeler/IALLabeler.hpp"
 
 static AudacityProject::AttachedObjects::RegisteredFactory sProjectHistoryKey {
    []( AudacityProject &project ) {
@@ -107,10 +108,11 @@ void ProjectHistory::PushState(const TranslatableString &desc,
    auto &viewInfo = ViewInfo::Get( project );
    auto &undoManager = UndoManager::Get( project );
    auto &tags = Tags::Get( project );
+   auto &labeler = IALLabeler::Get( project );
    undoManager.PushState(
       &tracks, viewInfo.selectedRegion, tags.shared_from_this(),
       desc, shortDesc, flags);
-
+   labeler.labelTracks();
    mDirty = true;
 }
 

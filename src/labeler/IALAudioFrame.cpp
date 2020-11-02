@@ -16,17 +16,17 @@
 #include "../WaveClip.h"
 
 
-#pragma mark AudioFrame
+#pragma mark AudioFrame - Public
 
-
-IALAudioFrame::IALAudioFrame(std::weak_ptr<WaveTrack> track, sampleCount start, size_t length, bool checkAudio)
-    : track(track), start(start), length(length), label(""), currentHash(arc4random())
+IALAudioFrame::IALAudioFrame(std::weak_ptr<WaveTrack> track, sampleCount start, size_t desiredLength, bool checkAudio)
+    : track(track), start(start), desiredLength(desiredLength), label(""), currentHash(arc4random())
 {
     if (checkAudio)
     {
-        this->audioDidChange();
+        audioDidChange();
     }
 }
+
 
 std::unique_ptr<SampleBuffer> IALAudioFrame::fetchAudio(sampleFormat format, int sampleRate)
 {
@@ -34,7 +34,7 @@ std::unique_ptr<SampleBuffer> IALAudioFrame::fetchAudio(sampleFormat format, int
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {
         // Get the audio into the return buffer
-        auto buffer = std::make_unique<SampleBuffer>(SampleBuffer(length, floatSample));
+        auto buffer = std::make_unique<SampleBuffer>(SampleBuffer(desiredLength, floatSample));
         
         // Fetch Relevant Information
         AudacityProject *project = strongTrack->GetOwner()->GetOwner();
@@ -45,19 +45,19 @@ std::unique_ptr<SampleBuffer> IALAudioFrame::fetchAudio(sampleFormat format, int
         WaveClip conversionClip(sbFactory, originalFormat, strongTrack->GetRate(), strongTrack->GetWaveColorIndex());
         
         // Copy the samples into a buffer
-        size_t sourceLength = sourceAudioLength();
-        SampleBuffer transferBuffer(sourceLength, originalFormat);
+        size_t actualLength = sourceLength();
+        SampleBuffer transferBuffer(actualLength, originalFormat);
                 
-        strongTrack->Get(transferBuffer.ptr(), originalFormat, start, sourceLength);
+        strongTrack->Get(transferBuffer.ptr(), originalFormat, start, actualLength);
         
         // Copy into the clip and transform audio
-        conversionClip.Append(transferBuffer.ptr(), originalFormat, length);
+        conversionClip.Append(transferBuffer.ptr(), originalFormat, desiredLength);
         
         // Pad to 1s
-        if (length > sourceLength)
+        if (desiredLength > actualLength)
         {
             // This is where we could change the behavior of the last sample
-            conversionClip.AppendSilence(length - sourceLength, 0);
+            conversionClip.AppendSilence(desiredLength - actualLength, 0);
         }
         
         if (strongTrack->GetSampleFormat() != format)
@@ -83,7 +83,7 @@ bool IALAudioFrame::audioIsSilent(float threshold)
     {
         // Convert samples to times
         double startTime = strongTrack->LongSamplesToTime(start);
-        double endTime = strongTrack->LongSamplesToTime(start.as_size_t() + sourceAudioLength());
+        double endTime = strongTrack->LongSamplesToTime(start.as_size_t() + sourceLength());
         
         return 20*std::log10(strongTrack->GetRMS(startTime, endTime)) < threshold;
     }
@@ -99,16 +99,16 @@ bool IALAudioFrame::audioDidChange()
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {
         sampleFormat format = strongTrack->GetSampleFormat();
-        size_t trueLength= sourceAudioLength();
+        size_t actualLength = sourceLength();
         
         SampleBuffer startBuffer(1, format);
         strongTrack->Get(startBuffer.ptr(), format, start, 1);
         
         SampleBuffer middleBuffer(1, format);
-        strongTrack->Get(middleBuffer.ptr(), format, (start.as_size_t() + trueLength) / 2, 1);
+        strongTrack->Get(middleBuffer.ptr(), format, (start.as_size_t() + actualLength) / 2, 1);
         
         SampleBuffer endBuffer(1, format);
-        strongTrack->Get(endBuffer.ptr(), format, start.as_size_t() + trueLength, 1);
+        strongTrack->Get(endBuffer.ptr(), format, start.as_size_t() + actualLength, 1);
         
         float startSample = *(float *)startBuffer.ptr();
         float midSample = *(float *)middleBuffer.ptr();
@@ -130,31 +130,34 @@ bool IALAudioFrame::audioDidChange()
     return true;
 }
 
-size_t IALAudioFrame::sourceAudioLength()
+#pragma mark AudioFrame - Private
+
+size_t IALAudioFrame::sourceLength()
 {
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {
         sampleCount lastSample = strongTrack->TimeToLongSamples(strongTrack->GetEndTime());
         
         // Should be length for all frames excluding the last.
-        return std::min(start.as_size_t() + length, lastSample.as_size_t()) - start.as_size_t();
+        return std::min(start.as_size_t() + desiredLength, lastSample.as_size_t()) - start.as_size_t();
     }
     
     return 0;
 }
 
 
-#pragma mark AudioFrameTrack
 
-IALAudioFrameTrack::IALAudioFrameTrack(std::weak_ptr<WaveTrack> track, bool checkAudio) : track(track)
+#pragma mark AudioFrameCollection
+
+IALAudioFrameCollection::IALAudioFrameCollection(std::weak_ptr<WaveTrack> track, bool checkAudio) : track(track)
 {
     frames = std::vector<std::shared_ptr<IALAudioFrame>>(0);
-    validateFrameTrack();
+    validateFrameCollection();
 }
 
-std::weak_ptr<IALAudioFrame> IALAudioFrameTrack::operator[](sampleCount startSample)
+std::weak_ptr<IALAudioFrame> IALAudioFrameCollection::operator[](sampleCount startSample)
 {
-    validateFrameTrack();
+    validateFrameCollection();
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {
         long idx = strongTrack->LongSamplesToTime(startSample);
@@ -164,7 +167,7 @@ std::weak_ptr<IALAudioFrame> IALAudioFrameTrack::operator[](sampleCount startSam
     return std::weak_ptr<IALAudioFrame>();
 }
 
-void IALAudioFrameTrack::validateFrameTrack()
+void IALAudioFrameCollection::validateFrameCollection()
 {
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {
@@ -180,7 +183,7 @@ void IALAudioFrameTrack::validateFrameTrack()
     }
 }
 
-void IALAudioFrameTrack::createFramesForRange(int startIdx, int endIdx, bool checkAudio)
+void IALAudioFrameCollection::createFramesForRange(int startIdx, int endIdx, bool checkAudio)
 {
     if (std::shared_ptr<WaveTrack> strongTrack = track.lock())
     {

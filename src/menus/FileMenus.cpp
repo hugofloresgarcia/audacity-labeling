@@ -411,8 +411,7 @@ void ImportAudio(const CommandContext &context, bool labelAudio = false)
    }
 
    if (labelAudio) {
-       IALLabeler labeler(context);
-       labeler.labelTracks();
+       IALLabeler::Get(project).labelTracks();
    }
 
    window.ZoomAfterImport(nullptr);
