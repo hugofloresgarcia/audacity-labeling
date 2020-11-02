@@ -43,12 +43,9 @@ cmake -use_pa_jack=off .. -G Xcode
 ```
 
 copy model file to the product's resources dir (ask for the model file for now)
-AND the labels file
+AND the labels file. make sure to copy to the appropriate dir (Release or Debug)
 ```
 cd .. # cd back to project root
 cp ./ial-weights/medleydb/ial-model.pt build/bin/Release/Audacity.app/Contents/Resources/ial-model.pt
 cp ./ial-weights/medleydb/ial-instruments.txt build/bin/Release/Audacity.app/Contents/Resources/ial-instruments.txt
 ```
-
-cp ./ial-weights/medleydb/ial-model.pt build/bin/Debug/Audacity.app/Contents/Resources/ial-model.pt
-cp ./ial-weights/medleydb/ial-instruments.txt build/bin/Debug/Audacity.app/Contents/Resources/ial-instruments.txt
