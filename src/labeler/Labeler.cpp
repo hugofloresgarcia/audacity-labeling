@@ -66,7 +66,6 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                 // get back class labels from model
                 std::vector<std::string> predictions = model.predictInstruments(audio);       
                 for (const auto &e : predictions) std::cout << e << "\n";
-                int a;
                 // ******************]
             }
         }
