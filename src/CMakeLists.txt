@@ -328,12 +328,12 @@ list( APPEND SOURCES
       float_cast.h
       wxFileNameWrapper.h
 
-      # INTERACTIVE AUDIO LAB
+      # IAL Labeler
       
       labeler/Labeler.cpp
       labeler/Labeler.hpp
-      labeler/Model.hpp
-      labeler/Model.cpp
+      labeler/IALModel.hpp
+      labeler/IALModel.cpp
 
       # Commands
 
@@ -1306,6 +1306,7 @@ source_group(
 )
 
 ### INTERACTIVE AUDIO LAB LABELER
+list(APPEND CMAKE_PREFIX_PATH "${topdir}/src/libtorch/")
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
@@ -1330,7 +1331,7 @@ ADD_LIBRARY(tensorflow SHARED IMPORTED)
 SET_TARGET_PROPERTIES(tensorflow PROPERTIES
    IMPORTED_LOCATION ${tf_loc})
 
-target_include_directories(${TARGET} PUBLIC "${topdir}/src/libtorch/include")
+target_include_directories(${TARGET} PUBLIC "${topdir}/src/labeler/libtorch/include")
 target_include_directories(${TARGET} PUBLIC "/usr/local/include/eigen3")
 
 target_sources( ${TARGET} PRIVATE ${HEADERS} ${SOURCES} ${RESOURCES} ${MAC_RESOURCES} ${WIN_RESOURCES} )
@@ -1338,7 +1339,7 @@ target_compile_definitions( ${TARGET} PRIVATE ${DEFINES} )
 target_compile_options( ${TARGET} PRIVATE ${OPTIONS} )
 target_include_directories( ${TARGET} PRIVATE ${INCLUDES})
 target_link_options( ${TARGET} PRIVATE ${LDFLAGS} )
-target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}" essentia tensorflow)
+target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}")
 ###################################
 
 
