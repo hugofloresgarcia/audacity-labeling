@@ -1310,42 +1310,23 @@ source_group(
         ${_INTDIR}/CMakeFiles/Audacity.dir/cmake_pch.hxx
 )
 
-### INTERACTIVE AUDIO LAB LABELER
-list(APPEND CMAKE_PREFIX_PATH "${topdir}/src/libtorch/")
+### IAL LABELER
+
+# append libtorch dir to cmake paths and find torch
+list(APPEND CMAKE_PREFIX_PATH "${topdir}/src/labeler/libtorch/")
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-
-# # ESSENTIA STATIC
-# find_library(essentia_location NAMES libessentia.a)
-# message(STATUS ${essentia_location})
-# ADD_LIBRARY(essentia STATIC IMPORTED)
-# set_target_properties(essentia PROPERTIES
-#     IMPORTED_LOCATION ${essentia_location})
-
-# ESSENTIA SHARED
-find_library(essentia_location NAMES libessentia.dylib)
-message(STATUS ${essentia_location})
-add_library(essentia SHARED IMPORTED)
-set_target_properties(essentia PROPERTIES
-   IMPORTED_LOCATION ${essentia_location})
-
-### TENSORFLOW
-find_library(tf_loc NAMES libtensorflow.so)
-message(STATUS ${tf_loc})
-ADD_LIBRARY(tensorflow SHARED IMPORTED)
-SET_TARGET_PROPERTIES(tensorflow PROPERTIES
-   IMPORTED_LOCATION ${tf_loc})
-
 target_include_directories(${TARGET} PUBLIC "${topdir}/src/labeler/libtorch/include")
-target_include_directories(${TARGET} PUBLIC "/usr/local/include/eigen3")
 
 target_sources( ${TARGET} PRIVATE ${HEADERS} ${SOURCES} ${RESOURCES} ${MAC_RESOURCES} ${WIN_RESOURCES} )
 target_compile_definitions( ${TARGET} PRIVATE ${DEFINES} )
 target_compile_options( ${TARGET} PRIVATE ${OPTIONS} )
 target_include_directories( ${TARGET} PRIVATE ${INCLUDES})
 target_link_options( ${TARGET} PRIVATE ${LDFLAGS} )
+
+# IAL: link torch 
 target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}")
-###################################
+
 
 
 # If was have cmake 3.16 or higher, we can use precompiled headers, but

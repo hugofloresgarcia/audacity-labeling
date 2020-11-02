@@ -23,7 +23,7 @@
 #include "../Track.h"
 #include "../SampleBlock.h"
 
-#include "Model.hpp"
+#include "IALModel.hpp"
 
 
 #pragma mark IALLabeler Class Definition
@@ -57,7 +57,7 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                     
                 // ******************
                 //  load model
-                AudioClassificationModel model(wxFileName(wxT("/Users/hugoffg/Documents/lab/audacity-labeling/weights/bigpapa-mdb-no1dbatchnorm.pt")).GetFullPath().ToStdString());
+                IALModel model(wxFileName(wxT("/Users/hugoffg/Documents/lab/audacity-labeling/weights/bigpapa-mdb-no1dbatchnorm.pt")).GetFullPath().ToStdString());
                 // convert buffer to tensor
                 auto options = torch::TensorOptions().dtype(torch::kFloat32);
                 torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);
