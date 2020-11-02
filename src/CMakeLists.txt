@@ -1322,8 +1322,6 @@ target_link_options( ${TARGET} PRIVATE ${LDFLAGS} )
 # IAL: link torch 
 target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}")
 
-
-
 # If was have cmake 3.16 or higher, we can use precompiled headers, but
 # only use them if ccache is not available and the user hasn't disabled
 # it.

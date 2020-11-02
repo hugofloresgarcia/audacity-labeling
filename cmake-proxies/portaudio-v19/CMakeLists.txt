@@ -86,13 +86,12 @@ cmd_option( ${_OPT}use_pa_jack
             STRINGS "loaded" "linked" "off"
 )
 
-# I am really sorry for this (hugo)
 if( NOT ${_OPT}use_pa_jack STREQUAL "off" )
    # # Find it
-   # find_package( Jack )
-   # if( NOT JACK_FOUND)
+   find_package( Jack )
+   if( NOT JACK_FOUND)
    set_cache_value( ${_OPT}use_pa_jack "off" )
-   # endif()
+   endif()
 endif()
 
 list( APPEND SOURCES
