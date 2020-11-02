@@ -85,7 +85,8 @@ torch::Tensor IALModel::padAndReshape(const torch::Tensor audio){
     auto length = audio.sizes()[0];
     
     // RIGHT: pad with zeros to meet length
-    int padLength = ceil(length / chunkLen) * chunkLen - length;
+    int newLength = ceil((double)length/chunkLen) * chunkLen;
+    int padLength = newLength - length;
     torch::Tensor padTensor = torch::zeros({padLength});
     torch::Tensor reshapedAudio = torch::cat({audio, padTensor});
 
@@ -143,7 +144,6 @@ std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioB
     }
     return predictions;
 }
-
 
 // this is not actually a proper test and will be deleted
 void IALModel::modelTest(torch::Tensor inputAudio){
