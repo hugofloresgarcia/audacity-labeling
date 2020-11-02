@@ -57,7 +57,7 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                     
                 // ******************
                 //  load model
-                IALModel model(wxFileName(wxT("/Users/hugoffg/Documents/lab/audacity-labeling/weights/bigpapa-mdb-no1dbatchnorm.pt")).GetFullPath().ToStdString());
+                IALModel model(wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString());
                 // convert buffer to tensor
                 auto options = torch::TensorOptions().dtype(torch::kFloat32);
                 torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);

@@ -1,5 +1,5 @@
-#ifndef Model_hpp
-#define Model_hpp
+#ifndef IALModel_hpp
+#define IALModel_hpp
 
 #include <iostream>
 #include <cmath>
@@ -21,7 +21,7 @@ class IALModel{
     torch::jit::script::Module loadModel(const std::string &filepath);
 
     public:
-        // constructor: AudioClassificationModel model(wxFileName(wxT("/Users/hugoffg/Documents/lab/audacity-labeling/weights/tunedopenl3_philharmonia_torchscript.pt")).GetFullPath().ToStdString());
+        // constructor: IALModel model(wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString());
         IALModel(const std::string &filepath);
 
         const std::vector<std::string> &getClassNames() {return classNames;}
