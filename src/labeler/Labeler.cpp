@@ -57,12 +57,14 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                     
                 // ******************
                 //  load model
-                IALModel model(wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString());
+                IALModel model(/* modelPath: */ wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString(), 
+                        /* instrumentListPath*/ wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString());
+
                 // convert buffer to tensor
                 auto options = torch::TensorOptions().dtype(torch::kFloat32);
                 torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);
                 // reshape into (batch, channels, sample)
-                audio = model.reshapeFromBlob(audio);
+                audio = model.padAndReshape(audio);
                 // get back class labels from model
                 std::vector<std::string> predictions = model.predictInstruments(audio);       
                 for (const auto &e : predictions) std::cout << e << "\n";

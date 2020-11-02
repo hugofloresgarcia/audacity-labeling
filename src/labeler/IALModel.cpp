@@ -12,18 +12,28 @@ IALModel::IALModel(const std::string &modelPath){
     jitModel = loadModel(modelPath);
 
     // hardcoding these here for now
-    classNames  = {
+    instruments  = {
         // these are the medleydb classes
         "accordion","acoustic guitar","alto saxophone","auxiliary percussion","bamboo flute","banjo","baritone saxophone","bass clarinet","bass drum","bassoon","bongo","brass section","cello","clarinet","clean electric guitar","distorted electric guitar","dizi","double bass","drum machine","drum set","electric bass","electric piano","erhu","female vocalist","flute","french horn","glockenspiel","gong","gu","guzheng","harmonica","harp","horn section","lap steel guitar","male vocalist","mandolin","melodica","oboe","other","oud","percussion","piano","piccolo","soprano saxophone","string section","synthesizer","tabla","tenor saxophone","timpani","trombone","trumpet","tuba","vibraphone","viola","violin","vocalists","yangqin","zhongruan",
         // these are the philharmonia classes
-    //    "saxophone", "flute" , "guitar", "contrabassoon",
-    //    "bass-clarinet","trombone","cello","oboe",
-    //    "bassoon", "banjo", "mandolin", "tuba", "viola",
-    //    "french-horn", "english-horn", "violin", "double-bass",
-    //    "trumpet", "clarinet"
+        // "saxophone", "flute" , "guitar", "contrabassoon",
+        // "bass-clarinet","trombone","cello","oboe",
+        // "bassoon", "banjo", "mandolin", "tuba", "viola",
+        // "french-horn", "english-horn", "violin", "double-bass",
+        // "trumpet", "clarinet"
     };
-    // sort classnames
-    std::sort(classNames.begin(), classNames.end());
+}
+
+/*
+@brief: creates a classifier instance
+@params:
+    std::string &modelPath: path to jit model (.pt) file. 
+    std::string &instrumentListPath: path to class instruments file.
+        NOTE: the instrument file must have each instrument name separated by a newline
+*/
+IALModel::IALModel(const std::string &modelPath, const std::string &instrumentListPath){
+    jitModel = loadModel(modelPath);
+    instruments = loadInstrumentList(instrumentListPath);
 }
 
 /*
@@ -45,6 +55,32 @@ torch::jit::script::Module IALModel::loadModel(const std::string &filepath) {
 }
 
 /*
+@brief: returns a torch::jit::model specified by @param std::string filepath
+*/
+std::vector<std::string> IALModel::loadInstrumentList(const std::string &filepath) {
+    std::vector<std::string> instruments;
+    std::ifstream instrumentFile(filepath);
+
+    if (instrumentFile.is_open()) {
+        while (instrumentFile.good()) {
+            std::string line;
+            getline(instrumentFile, line);
+            line.erase(line.find_last_not_of("\r\n ") + 1);  // strip newline
+            
+            if (!line.empty()) {
+                instruments.push_back(line);
+            }
+        }
+    }
+
+    instrumentFile.close();
+    
+    // if (sort) {std::sort(instruments.begin(), instruments.end());}
+
+    return instruments;
+}
+
+/*
 downmix audio tensor
 input tensor must be shape (batch, channels, time)
 */
@@ -62,21 +98,21 @@ torch::Tensor IALModel::downmix(const torch::Tensor audioBatch) {
 
 /*
 @brief: pads an audio tensor with shape (samples,)
-     with the necessary zeros and then reshapes to (batch, 1, sampleRate)
+     with the necessary zeros and then reshapes to (batch, 1, chunkLen)
 @params:
     torch::Tensor audio: MONO audio tensor with shape (samples,)
 @returns:
-    torch::Tensor reshapedAudio: audio tensor with shape (batch, 1, sampleRate)
+    torch::Tensor reshapedAudio: audio tensor with shape (batch, 1, chunkLen)
 */
 torch::Tensor IALModel::padAndReshape(const torch::Tensor audio){
     auto length = audio.sizes()[0];
     
     // RIGHT: pad with zeros to meet length
-    int padLength = ceil(length / sampleRate) * sampleRate - length;
+    int padLength = ceil(length / chunkLen) * chunkLen - length;
     torch::Tensor padTensor = torch::zeros({padLength});
     torch::Tensor reshapedAudio = torch::cat({audio, padTensor})
 
-    reshapedAudio = reshapedAudio.reshape({-1, 1, sampleRate});
+    reshapedAudio = reshapedAudio.reshape({-1, 1, chunkLen});
     return reshapedAudio;
 }
 
@@ -85,7 +121,7 @@ TODO: the already-compiled models return log-probabilities.
 this should be fixed on the python side though, to keep this class architecture agnostic. 
 @brief: forward pass through the model and get raw class probabilities as output
 @params:
-    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, sampleRate)
+    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, chunkLen)
 @returns:
     torch::Tensor probits: per-class probabilities with shape (batch, n_classes)
 */
@@ -102,7 +138,7 @@ torch::Tensor IALModel::predictClassProbabilities(const torch::Tensor audioBatch
 /*
 @briefs: forward pass through the model and get a list of classes with the highest probabilities for every instance in the batch. 
 @params: 
-    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, sampleRate)
+    torch::Tensor audioBatch: batch of mono audio with shape (batch, 1, chunkLen)
     float confidenceThreshold: probabilities under this value will be labeled 'not-sure'
 @returns:  
     std::vector<std::string> predictions: list of class predictions for every instance in the batch
@@ -123,15 +159,16 @@ std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioB
         if (conf < confidenceThreshold){
             prediction = "not-sure";
         } else {
-            prediction = classNames.at(int(idx));
+            prediction = instruments.at(int(idx));
         }
         
         predictions.push_back(prediction);
     }
-
     return predictions;
 }
 
+
+// this is not actually a proper test and will be deleted
 void IALModel::modelTest(torch::Tensor inputAudio){
 
     try{
