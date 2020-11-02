@@ -1,0 +1,58 @@
+accordion
+acoustic guitar
+alto saxophone
+auxiliary percussion
+bamboo flute
+banjo
+baritone saxophone
+bass clarinet
+bass drum
+bassoon
+bongo
+brass section
+cello
+clarinet
+clean electric guitar
+distorted electric guitar
+dizi
+double bass
+drum machine
+drum set
+electric bass
+electric piano
+erhu
+female vocalist
+flute
+french horn
+glockenspiel
+gong
+gu
+guzheng
+harmonica
+harp
+horn section
+lap steel guitar
+male vocalist
+mandolin
+melodica
+oboe
+other
+oud
+percussion
+piano
+piccolo
+soprano saxophone
+string section
+synthesizer
+tabla
+tenor saxophone
+timpani
+trombone
+trumpet
+tuba
+vibraphone
+viola
+violin
+vocalists
+yangqin
+zhongruan
