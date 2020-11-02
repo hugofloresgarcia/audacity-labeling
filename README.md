@@ -7,16 +7,6 @@ I've added jack's dependencies (torch and essentia) to the CMake build. Building
 
 I've only tested this on MacOS Catalina (10.15.3)
 
-first, you need to build essentia from source. 
-```
-git clone git@github.com:mtg/essentia.git
-cd essentia
-./waf configure --with-tensorflow --with-cpptests --with-examples
-./waf
-./waf install
-```
-if this didn't work, you may need to install some additional libraries from brew. try https://essentia.upf.edu/installing.html.  
-
 now, build audacity
 
 ```
@@ -24,4 +14,9 @@ mkdir build
 cd build
 cmake .. -G Xcode
 xcodebuild -configuration Debug
+```
+
+__note__: if for some reason you get a linker error related to -ljack, build the project without jack:
+```
+cmake -use_pa_jack=off .. -G Xcode
 ```
