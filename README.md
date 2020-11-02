@@ -37,14 +37,15 @@ cmake .. -G Xcode
 xcodebuild -configuration Release
 ```
 
-copy model file to the product's resources dir (ask for the model file for now)
-AND the labels fils
-```
-cp ../ial-weights/medleydb/ial-model.pt bin/Release/Audacity.app/Contents/Resources/ial-model.pt
-cp ../ial-weights/medleydb/ial-instruments.txt bin/Release/Audacity.app/Contents/Resources/ial-instruments.txt
-```
-
 __note__: if for some reason you get a linker error related to -ljack, build the project without jack:
 ```
 cmake -use_pa_jack=off .. -G Xcode
+```
+
+copy model file to the product's resources dir (ask for the model file for now)
+AND the labels file
+```
+cd .. # cd back to project root
+cp /ial-weights/medleydb/ial-model.pt build/bin/Release/Audacity.app/Contents/Resources/ial-model.pt
+cp /ial-weights/medleydb/ial-instruments.txt build/bin/Release/Audacity.app/Contents/Resources/ial-instruments.txt
 ```
