@@ -1,20 +1,20 @@
 #include "IALModel.hpp"
 
 
-/*
-@brief: creates a classifier instance
-@params:
-    std::string &modelPath: path to jit model (.pt) file. 
-    std::string &instrumentListPath: path to class instruments file.
-        NOTE: the instrument file must have each instrument name separated by a newline
+/**
+ @brief: creates a classifier instance
+ @param modelPath path to jit model (.pt) file.
+ @param instrumentListPath path to class instruments file.
+ NOTE: the instrument file must have each instrument name separated by a newline
 */
 IALModel::IALModel(const std::string &modelPath, const std::string &instrumentListPath){
     jitModel = loadModel(modelPath);
     instruments = loadInstrumentList(instrumentListPath);
 }
 
-/*
-@brief: returns a torch::jit::model specified by @param std::string filepath
+/**
+ @brief: returns a torch::jit::model specified by filepath
+ @param filepath a string containing the filepath
 */
 torch::jit::script::Module IALModel::loadModel(const std::string &filepath) {
     torch::jit::script::Module classifierModel;
@@ -31,8 +31,9 @@ torch::jit::script::Module IALModel::loadModel(const std::string &filepath) {
     return classifierModel;
 }
 
-/*
-@brief: returns a torch::jit::model specified by @param std::string filepath
+/**
+ @brief: returns a torch::jit::model specified by filepath
+ @param filepath location of torch model
 */
 std::vector<std::string> IALModel::loadInstrumentList(const std::string &filepath) {
     std::vector<std::string> instruments;

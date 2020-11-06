@@ -10,9 +10,10 @@
 
 #include <stdio.h>
 #include <memory>
-#include <unordered_map>
+#include <map>
 
 #include "ClientData.h"
+#include "../Track.h"
 #include "IALAudioFrame.hpp"
 
 class LabelTrack;
@@ -44,7 +45,7 @@ public:
 private:
     const AudacityProject &project;
     
-    std::unordered_map<int, IALAudioFrameCollection> tracks;
+    std::map<TrackId, IALAudioFrameCollection> tracks;
 //    std::vector<IALTrackAnalysis> tracks;
 };
 
