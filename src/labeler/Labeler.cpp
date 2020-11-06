@@ -63,7 +63,7 @@ std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
                 // convert buffer to tensor
                 auto options = torch::TensorOptions().dtype(torch::kFloat32);
                 torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);
-                torch::Tensor audio = torch::zeros({48000})
+                torch::Tensor audio = torch::zeros({48000});
                 // reshape into (batch, channels, sample)
                 audio = model.padAndReshape(audio);
                 // get back class labels from model
