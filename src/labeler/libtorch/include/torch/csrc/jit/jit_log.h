@@ -25,16 +25,15 @@
 // * `GRAPH_DEBUG` should be used for providing information useful for debugging
 //   the internals of a particular optimization pass or analysis
 
-// The default logging level is `GRAPH_DUMP` meaning that only `GRAPH_DUMP`
-// statements will be enabled when one specifies a file(s) in
-// `PYTORCH_JIT_LOG_LEVEL`.
+// The current logging level is `GRAPH_UPDATE` meaning that both `GRAPH_DUMP`
+// and `GRAPH_UPDATE` will be enabled when
+// one specifies a file(s) in `PYTORCH_JIT_LOG_LEVEL`.
 
-// `GRAPH_UPDATE` can be enabled by prefixing a file name with an `>` as in
+// `GRAPH_DEBUG` can be enabled by prefixing a file name with an `>` as in
 // `>alias_analysis`.
-// `GRAPH_DEBUG` can be enabled by prefixing a file name with an `>>` as in
-// `>>alias_analysis`.
-// `>>>` is also valid and **currently** is equivalent to `GRAPH_DEBUG` as there
-// is no logging level that is higher than `GRAPH_DEBUG`.
+// `>>` and `>>>` are also valid and **currently** are equivalent to
+// `GRAPH_DEBUG` as there is no logging level that is
+// higher than `GRAPH_DEBUG`.
 
 namespace torch {
 namespace jit {

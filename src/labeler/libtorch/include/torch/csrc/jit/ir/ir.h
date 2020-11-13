@@ -414,8 +414,6 @@ struct TORCH_API Node {
     return inputs_.at(i);
   }
 
-  bool hasNamedInput(const std::string& unqualName) const;
-  Value* namedInput(const std::string& unqualName) const;
   Value* namedInput(Symbol name) const;
 
   c10::optional<IValue> get(Symbol name) const;
@@ -810,7 +808,7 @@ struct TORCH_API Node {
     auto it = findAttr(name, true);
     auto* child = dynamic_cast<T*>(it->get());
     if (child == nullptr) {
-      throw IRAttributeError(name, true);
+      throw AttributeError(name, true);
     }
     return child->value();
   }
@@ -825,7 +823,7 @@ struct TORCH_API Node {
       return v->name == name;
     });
     if (required && it == values_.end()) {
-      throw IRAttributeError(name, false);
+      throw AttributeError(name, false);
     }
     AT_ASSERT(!required || it != values_.end());
     return it;
@@ -837,7 +835,7 @@ struct TORCH_API Node {
       return v->name == name;
     });
     if (required && it == values_.end()) {
-      throw IRAttributeError(name, false);
+      throw AttributeError(name, false);
     }
     AT_ASSERT(!required || it != values_.end());
     return it;

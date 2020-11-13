@@ -36,24 +36,24 @@ template<int n> struct TensorListMetadata
   int block_to_chunk[depth_to_max_blocks[n-1]];
 };
 
-template<typename scalar_vals_t, int n> struct TensorListScalarListMetadata
+template<int n> struct TensorListScalarListMetadata
 {
   void* addresses[n][depth_to_max_tensors_scalarlist[n-1]];
   int sizes[depth_to_max_tensors_scalarlist[n-1]];
-  scalar_vals_t scalar_vals[depth_to_max_tensors_scalarlist[n-1]];
+  double scalar_vals[depth_to_max_tensors_scalarlist[n-1]];
   unsigned char block_to_tensor[depth_to_max_blocks[n-1]];
   int block_to_chunk[depth_to_max_blocks[n-1]];
 };
 
 template<typename T, typename U, typename... ArgTypes>
 C10_LAUNCH_BOUNDS_1(kBlockSize)
-__global__ void
+__global__ void 
 multi_tensor_apply_kernel(
     T tensorListMeta,
     U callable,
     ArgTypes... args) {
   // Hand the chunk information to the user-supplied functor to process however it likes.
-  callable(kChunkSize, tensorListMeta, args...);
+  callable(kChunkSize, tensorListMeta, args...); 
 }
 
 template<int depth, typename T, typename... ArgTypes>
@@ -65,8 +65,7 @@ void multi_tensor_apply(
         TORCH_CHECK(tensor_lists.size() == depth, "Number of tensor lists has to match the depth.");
         const cuda::OptionalCUDAGuard device_guard(device_of(tensor_lists[0][0]));
         size_t n_tensors = tensor_lists[0].size();
-        using scalar_vals_t = typename T::opmath_t;
-        TensorListScalarListMetadata<scalar_vals_t, depth> tensorListMeta;
+        TensorListScalarListMetadata<depth> tensorListMeta;
 
         int loc_block_info = 0;
         int loc_tensor_info = 0;
@@ -102,7 +101,7 @@ void multi_tensor_apply(
                     // Reset.
                     loc_block_info = 0;
                     if(chunk == chunks - 1) {
-                        loc_tensor_info = 0;
+                        loc_tensor_info = 0; 
                     }
                     else {
                         tensorListMeta.sizes[0] = tensorListMeta.sizes[loc_tensor_info-1];
@@ -159,7 +158,7 @@ void multi_tensor_apply(
                     // Reset.
                     loc_block_info = 0;
                     if(chunk == chunks - 1) {
-                        loc_tensor_info = 0;
+                        loc_tensor_info = 0; 
                     }
                     else {
                         tensorListMeta.sizes[0] = tensorListMeta.sizes[loc_tensor_info-1];

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ATen/cuda/DeviceUtils.cuh>
+#include <THC/THCDeviceUtils.cuh>
 
 namespace at {
 namespace native {

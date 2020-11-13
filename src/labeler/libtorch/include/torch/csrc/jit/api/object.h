@@ -12,13 +12,6 @@ using ResolverPtr = std::shared_ptr<Resolver>;
 
 using ObjectPtr = c10::intrusive_ptr<c10::ivalue::Object>;
 
-// Throw this in C++ land if `attr` fails. This will be converted to a Python
-// AttributeError by the Python binding code
-class ObjectAttributeError : public std::runtime_error {
- public:
-  ObjectAttributeError(const std::string& what) : std::runtime_error(what) {}
-};
-
 struct TORCH_API Object {
   Object() {}
   Object(ObjectPtr _ivalue) : _ivalue_(std::move(_ivalue)) {}
@@ -66,10 +59,12 @@ struct TORCH_API Object {
     if (auto r = _ivalue()->type()->findConstantSlot(name)) {
       return _ivalue()->type()->getConstant(*r);
     }
-    std::stringstream err;
-    err << _ivalue()->type()->repr_str() << " does not have a field with name '"
-        << name.c_str() << "'";
-    throw ObjectAttributeError(err.str());
+    TORCH_CHECK(
+        false,
+        _ivalue()->type()->repr_str(),
+        " does not have a field with name '",
+        name,
+        "'");
   }
 
   c10::IValue attr(const std::string& name, c10::IValue or_else) const {

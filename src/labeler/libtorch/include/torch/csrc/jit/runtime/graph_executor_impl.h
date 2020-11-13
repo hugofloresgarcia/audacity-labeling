@@ -38,9 +38,6 @@ void runNondiffOptimization(
 void debugSetAutodiffSubgraphInlining(bool state);
 bool getAutodiffSubgraphInlining();
 
-void debugSetFusionGroupInlining(bool state);
-bool getFusionGroupInlining();
-
 // Tunable parameters for deciding when to create/keep subgraphs of
 // differentiable code
 const size_t autodiffSubgraphNodeThreshold = 2;

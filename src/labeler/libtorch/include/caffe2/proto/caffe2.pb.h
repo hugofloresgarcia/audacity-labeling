@@ -2230,7 +2230,6 @@ class CAFFE2_API TensorBoundShape :
     kDimTypeFieldNumber = 2,
     kNameFieldNumber = 3,
     kShapeFieldNumber = 1,
-    kShapeIsFinalFieldNumber = 4,
   };
   // repeated .caffe2.TensorBoundShape.DimType dim_type = 2;
   int dim_type_size() const;
@@ -2284,19 +2283,6 @@ class CAFFE2_API TensorBoundShape :
   ::caffe2::TensorShape* _internal_mutable_shape();
   public:
 
-  // optional bool shape_is_final = 4;
-  bool has_shape_is_final() const;
-  private:
-  bool _internal_has_shape_is_final() const;
-  public:
-  void clear_shape_is_final();
-  bool shape_is_final() const;
-  void set_shape_is_final(bool value);
-  private:
-  bool _internal_shape_is_final() const;
-  void _internal_set_shape_is_final(bool value);
-  public:
-
   // @@protoc_insertion_point(class_scope:caffe2.TensorBoundShape)
  private:
   class _Internal;
@@ -2307,7 +2293,6 @@ class CAFFE2_API TensorBoundShape :
   ::PROTOBUF_NAMESPACE_ID::RepeatedField<int> dim_type_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr name_;
   ::caffe2::TensorShape* shape_;
-  bool shape_is_final_;
   friend struct ::TableStruct_caffe2_2fproto_2fcaffe2_2eproto;
 };
 // -------------------------------------------------------------------
@@ -7510,34 +7495,6 @@ inline void TensorBoundShape::set_allocated_name(std::string* name) {
   }
   name_.SetAllocatedNoArena(&GetEmptyStringAlreadyInited(), name);
   // @@protoc_insertion_point(field_set_allocated:caffe2.TensorBoundShape.name)
-}
-
-// optional bool shape_is_final = 4;
-inline bool TensorBoundShape::_internal_has_shape_is_final() const {
-  bool value = (_has_bits_[0] & 0x00000004u) != 0;
-  return value;
-}
-inline bool TensorBoundShape::has_shape_is_final() const {
-  return _internal_has_shape_is_final();
-}
-inline void TensorBoundShape::clear_shape_is_final() {
-  shape_is_final_ = false;
-  _has_bits_[0] &= ~0x00000004u;
-}
-inline bool TensorBoundShape::_internal_shape_is_final() const {
-  return shape_is_final_;
-}
-inline bool TensorBoundShape::shape_is_final() const {
-  // @@protoc_insertion_point(field_get:caffe2.TensorBoundShape.shape_is_final)
-  return _internal_shape_is_final();
-}
-inline void TensorBoundShape::_internal_set_shape_is_final(bool value) {
-  _has_bits_[0] |= 0x00000004u;
-  shape_is_final_ = value;
-}
-inline void TensorBoundShape::set_shape_is_final(bool value) {
-  _internal_set_shape_is_final(value);
-  // @@protoc_insertion_point(field_set:caffe2.TensorBoundShape.shape_is_final)
 }
 
 // -------------------------------------------------------------------
