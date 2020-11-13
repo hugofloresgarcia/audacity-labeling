@@ -209,6 +209,7 @@ win/xaudacity.ico
 
 # IAL Labeler
 # models
-*.pb 
+lib-src/libtorch
+*.pb
 *.pt
 wxWidgets/

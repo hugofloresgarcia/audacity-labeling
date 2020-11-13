@@ -15,6 +15,7 @@
 #include "WaveTrack.h"
 #include "../WaveClip.h"
 #include "../Track.h"
+#include "../ViewInfo.h"
 
 
 #pragma mark ClientData Initialization
@@ -59,6 +60,7 @@ const IALLabeler &IALLabeler::Get(const AudacityProject &project)
 IALLabeler::IALLabeler(const AudacityProject &project)
     : project(project), tracks(std::map<TrackId, IALAudioFrameCollection>())
 {
+    Bind(EVT_SELECTED_REGION_CHANGE, &IALLabeler::processSelectedRegion, this);
 }
 
 void IALLabeler::labelTracks()

@@ -168,4 +168,44 @@ private:
     void createFramesForRange(int startIdx, int endIdx, bool checkAudio=false);
 };
 
+
+
+class IALAudioFrameCollection2 : std::enable_shared_from_this<IALAudioFrameCollection2>
+{
+public:
+    
+    IALAudioFrameCollection2(std::weak_ptr<WaveTrack> track);
+    
+    std::vector<std::weak_ptr<WaveTrack>> channels();
+    bool addChannel(std::weak_ptr<WaveTrack> track);
+    bool removeChannel(std::weak_ptr<WaveTrack> track);
+    
+    
+    
+private:
+    class IALAudioFrame
+    {
+    public:
+        const sampleCount start;
+        const size_t desiredLength;
+        
+        std::string label();
+        
+        IALAudioFrame(const IALAudioFrameCollection2 &collection, const sampleCount start, size_t desiredLength);
+        
+    private:
+        const IALAudioFrameCollection2 &collection;
+        
+        bool audioDidChange();
+        bool audioIsSilent(float threshold=-80);
+        bool downmixedAudio(sampleFormat format=floatSample, int sampleRate=48000);
+    };
+    
+    std::vector<std::weak_ptr<WaveTrack>> channelVector;
+    std::vector<IALAudioFrame> audioFrames;
+    
+    void handleDeletedTrack();
+    void extendFramesToLength(size_t length);
+};
+
 #endif /* IALInputAudioFrame_hpp */

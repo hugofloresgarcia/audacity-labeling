@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <memory>
 #include <map>
+#include <wx/event.h>
 
 #include "ClientData.h"
 #include "../Track.h"
@@ -21,6 +22,7 @@ class IALTrackAnalysis;
 
 class IALLabeler
     : public ClientData::Base,
+      public wxEvtHandler,
       public std::enable_shared_from_this<IALLabeler>
 {
     
@@ -45,18 +47,10 @@ public:
 private:
     const AudacityProject &project;
     
+    void processSelectedRegion(wxCommandEvent &event);
+    
     std::map<TrackId, IALAudioFrameCollection> tracks;
 //    std::vector<IALTrackAnalysis> tracks;
-};
-
-
-class IALTrackAnalysis
-{
-public:
-    std::string label();
-    IALAudioFrameCollection frames;
-    
-    std::weak_ptr<const LabelTrack> labelTrack;
 };
 
 #endif
