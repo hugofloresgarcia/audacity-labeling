@@ -291,14 +291,6 @@ struct NotImplementedError : public PyTorchError {
   }
 };
 
-// Translates to Python AttributeError
-struct AttributeError : public PyTorchError {
-  AttributeError(const char* format, ...) TORCH_FORMAT_FUNC(2, 3);
-  PyObject* python_type() override {
-    return PyExc_AttributeError;
-  }
-};
-
 struct WarningMeta {
   WarningMeta(const c10::SourceLocation& _source_location,
       const std::string& _msg,

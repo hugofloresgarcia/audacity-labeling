@@ -61,7 +61,7 @@ set_target_properties(tensorpipe_uv PROPERTIES
 add_library(tensorpipe STATIC IMPORTED)
 
 set_target_properties(tensorpipe PROPERTIES
-  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:tensorpipe_uv>;/Applications/Xcode-12.GM.seed.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/CoreFoundation.framework;/Applications/Xcode-12.GM.seed.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/IOKit.framework"
+  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:tensorpipe_uv>;/Applications/Xcode-11.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/CoreFoundation.framework;/Applications/Xcode-11.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/IOKit.framework"
 )
 
 if(CMAKE_VERSION VERSION_LESS 2.8.12)

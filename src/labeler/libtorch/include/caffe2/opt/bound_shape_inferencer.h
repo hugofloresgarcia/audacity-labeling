@@ -107,8 +107,7 @@ class CAFFE2_API BoundShapeInferencer : public BoundShapeInferencerBase {
       bool is_quantized,
       bool allow_existing_shape = false,
       float scale = 1,
-      int offset = 0,
-      bool in_place_op = false);
+      int offset = 0);
 
   TensorShape& SetTensorBoundShapeIfNotExist(
       const std::string& name,
@@ -137,7 +136,7 @@ class CAFFE2_API BoundShapeInferencer : public BoundShapeInferencerBase {
 
   // Standard shape/type inference using op schema registered shape inference
   // function
-  void InferCommonOp(const OperatorDef& op, const OpSchema* schema = nullptr, bool bypass_input_check = false, bool in_place_op = false);
+  void InferCommonOp(const OperatorDef& op);
 
   // Initialize private parameters, such as shape_info, extract_feature_len_
   // This is called at the beginning of InferBoundShapeAndType()

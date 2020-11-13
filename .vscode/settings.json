@@ -75,5 +75,6 @@
         "ranges": "cpp",
         "stop_token": "cpp"
     },
-    "C_Cpp.errorSquiggles": "Enabled"
+    "C_Cpp.errorSquiggles": "Enabled",
+    "C_Cpp.dimInactiveRegions": false
 }

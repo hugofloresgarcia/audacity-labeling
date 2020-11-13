@@ -8,16 +8,12 @@ namespace native {
 using qrelu_fn = void (*)(const at::Tensor& /*qx*/, at::Tensor& /*qy*/);
 using qrelu_leaky_fn = void (*)(Tensor& /*out*/, const Tensor& /*qx*/,
                                 Scalar /*negval_*/);
-using qsigmoid_fn = void (*)(const at::Tensor& /*qx*/, at::Tensor& /*qy*/, double output_scale, int64_t output_zero_point);
+using qsigmoid_fn = void (*)(const at::Tensor& /*qx*/, at::Tensor& /*qy*/);
 using qhardsigmoid_fn = void (*)(const at::Tensor& /*qx*/, at::Tensor& /*qy*/);
 using qclamp_fn = void (*)(
     const at::Tensor& /*qx*/,
     Scalar min,
     Scalar max,
-    at::Tensor& /*qy*/);
-using qclamp_minmax_fn = void (*)(
-    const at::Tensor& /*qx*/,
-    Scalar /*min or max*/,
     at::Tensor& /*qy*/);
 using qthreshold_fn = void (*)(
     const at::Tensor& /*qx*/,
@@ -171,8 +167,6 @@ DECLARE_DISPATCH(qbinary_fn, qmul_stub);
 DECLARE_DISPATCH(qcat_nhwc_fn, qcat_nhwc_stub);
 DECLARE_DISPATCH(qcat_nhwc_fn, qcat_relu_nhwc_stub);
 DECLARE_DISPATCH(qclamp_fn, qclamp_stub);
-DECLARE_DISPATCH(qclamp_minmax_fn, qclamp_min_stub);
-DECLARE_DISPATCH(qclamp_minmax_fn, qclamp_max_stub);
 DECLARE_DISPATCH(qelu_fn, qelu_stub);
 DECLARE_DISPATCH(qhardsigmoid_fn, qhardsigmoid_stub);
 DECLARE_DISPATCH(qhardswish_fn, qhardswish_stub);
