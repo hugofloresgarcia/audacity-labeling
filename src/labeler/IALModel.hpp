@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <torch/script.h>
 
-class IALModel{
+class IALModel {
 
     std::vector<std::string> instruments;
     torch::jit::script::Module jitModel;

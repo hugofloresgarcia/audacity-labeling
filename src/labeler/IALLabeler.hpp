@@ -11,22 +11,23 @@
 #include <stdio.h>
 #include <memory>
 #include <map>
-#include <wx/event.h>
 
 #include "ClientData.h"
 #include "../Track.h"
 #include "IALAudioFrame.hpp"
+#include "IALModel.hpp"
 
 class LabelTrack;
-class IALTrackAnalysis;
+class IALModel;
 
 class IALLabeler
     : public ClientData::Base,
-      public wxEvtHandler,
       public std::enable_shared_from_this<IALLabeler>
 {
     
 public:
+    IALModel classifier;
+    
     // Get static instance
     static IALLabeler &Get(AudacityProject &project);
     static const IALLabeler &Get(const AudacityProject &project);
@@ -47,10 +48,9 @@ public:
 private:
     const AudacityProject &project;
     
-    void processSelectedRegion(wxCommandEvent &event);
+    void updateTracks();
     
     std::map<TrackId, IALAudioFrameCollection> tracks;
-//    std::vector<IALTrackAnalysis> tracks;
 };
 
 #endif

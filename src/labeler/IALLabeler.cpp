@@ -20,6 +20,9 @@
 
 #pragma mark ClientData Initialization
 
+static const std::string kModelPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString();
+static const std::string kInstrumentListPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString();
+
 /**
  @brief An anonymous function that initializes an instance of IALLabeler.
  @warning Do not call this function directly.
@@ -58,12 +61,18 @@ const IALLabeler &IALLabeler::Get(const AudacityProject &project)
 #pragma mark Initializer
 
 IALLabeler::IALLabeler(const AudacityProject &project)
-    : project(project), tracks(std::map<TrackId, IALAudioFrameCollection>())
+    : classifier(kModelPath, kInstrumentListPath), project(project), tracks(std::map<TrackId, IALAudioFrameCollection>())
 {
-    Bind(EVT_SELECTED_REGION_CHANGE, &IALLabeler::processSelectedRegion, this);
+    updateTracks();
 }
 
+# pragma mark Private
+
 void IALLabeler::labelTracks()
+{
+}
+
+void IALLabeler::updateTracks()
 {
     TrackList &trackList = TrackList::Get(const_cast<AudacityProject&>(project));
     for (Track *track : trackList)
@@ -80,40 +89,12 @@ void IALLabeler::labelTracks()
 
             if (pair == tracks.end())
             {
-                tracks.insert(std::make_pair(leaderID, IALAudioFrameCollection(std::weak_ptr<WaveTrack>(leaderTrack))));
-
+                tracks.insert(std::make_pair(leaderID, IALAudioFrameCollection(classifier, leaderTrack)));
                 pair = tracks.find(leaderID);
             }
 
             IALAudioFrameCollection& frameCollection = tracks.find(leaderID)->second;
-            
-            if (!frameCollection.containsChannel(waveTrack))
-            {
-                frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
-            }
-
-            
-            for (std::shared_ptr<IALAudioFrame> frame : frameCollection)
-            {
-                if (frame->audioDidChange() && !frame->audioIsSilent())
-                {
-                    frame->labelAudio();
-                }
-//                if (std::shared_ptr<WaveTrack> strongTrack = frame->track.lock())
-//                {
-//                    std::cout << "Track: " << strongTrack->GetName().ToStdString();
-//                    std::cout << " Frame: " << strongTrack->LongSamplesToTime(frame->start) << "-" << strongTrack->LongSamplesToTime(frame->start.as_size_t() + frame->sourceLength());
-//                    std::cout << " Silent: " << (frame->audioIsSilent() ? "YES" : "NO");
-//                    std::cout << " Modified: " << (frame->audioDidChange() ? "YES" : "NO") << std::endl;
-//                }
-            }
-            
-            auto labels = frameCollection.collectionLabels();
-            
-            for (std::string label : labels)
-            {
-                std::cout << label;
-            }
+            frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
         }
     }
 }

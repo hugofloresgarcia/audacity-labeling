@@ -11,26 +11,26 @@
 #include <stdio.h>
 #include <memory>
 #include <vector>
+#include <functional>
+
+#include <torch/script.h>
 
 class sampleCount;
 class WaveTrack;
 class SampleBuffer;
+class IALModel;
+class TrackId;
+
 class IALAudioFrameCollection;
 
 /**
- @brief A lightweight representation of a defined frame of audio in a specific WaveTrack.
+ @brief A lightweight representation of a defined frame of audio in a collection of single or multichannel tracks.
  @discussion The goal of this class is to keep track of a region that serves as input to the label prediction model. This class can make observations about
  the source frame that allow it to determine if it is necessary to recompute the label. It also will transform the audio into the desired format for the input model when fetched.
  */
 class IALAudioFrame
 {
 public:
-    /**
-     @brief The reference wave tracks that this audio frame is sourced from.
-     @discussion This vector will either contain one (in the case of mono) or two (in the case of stereo) WaveTracks.
-     When passing through the model, these are downmixed to mono.
-     */
-    std::weak_ptr<IALAudioFrameCollection> collection;
     
     /**
      @brief The location in the original reference track that marks the beginning of the audio frame.
@@ -45,26 +45,42 @@ public:
     const size_t desiredLength;
     
     /**
-     @brief The cached label from the last time the model processed the audio.
+     @brief Returns the automatic label assigned to this audio frame.
+     @discussion This method will do a varying amount of work depending on how much has changed between the last calculation.
+     If nothing changed, then the cachedLabel will be returned. If change is detected, a silence check will be run, and if the audio is not silent,
+     the model will predict the label for the frame.
      */
-    std::string label;
+    std::string label();
     
     /**
-     @brief The constructor for an audio frame, that establishes the location of the frame
-     @param track The reference track
+     @brief The constructor for an audio frame that establishes the location of the frame
+     @param collection The collection instance that this frame belongs to
      @param start The starting sample in the reference track
      @param desiredLength the length of the frame in terms of samples in reference to the original track
-     @param checkAudio (optional) a boolean indicating whether to find an initial hash value for didChange
      @returns an instance of an IALAudioFrame
      */
-    IALAudioFrame(std::weak_ptr<IALAudioFrameCollection> collection, const sampleCount start, size_t desiredLength, bool checkAudio=false);
+    IALAudioFrame(IALAudioFrameCollection &collection, const sampleCount start, const size_t desiredLength);
+    
+private:
+    /**
+     @brief The collection instance that this frame belongs to
+     */
+    IALAudioFrameCollection &collection;
     
     /**
-     @brief The true length of the frame. This method is calculated by comparing the source frame's duration to our desired length.
-     @discussion This value is useful in determining where to apply the label. It also prevents accidentally reading past the malloc'ed region of memory.
-     @returns the true length of the source frame in terms of samples.
+     @brief The last computed hash of the audio frame, stored as a canary to check for audio changes
      */
-    size_t sourceLength(const std::weak_ptr<WaveTrack> &channel);
+    size_t cachedHash;
+    
+    /**
+     @brief The last computed label of the audio frame, stored in case the label is requested before the audio changes.
+     */
+    std::string cachedLabel;
+    
+    /**
+     @brief The length of the frame within the context of the track. Either desiredLength or the remainder of the track, whichever is shorter.
+     */
+    size_t sourceLength(WaveTrack &track);
     
     /**
      @brief Detects whether the source audio in this frame has changed from the last time it was checked.
@@ -83,129 +99,46 @@ public:
      */
     bool audioIsSilent(float threshold=-80);
     
-    
-    std::string labelAudio(sampleFormat format=floatSample, int sampleRate=48000);
-    
     /**
-     @brief Returns a pointer to a buffer of audio from the reference track that is desiredLength samples long in the specified sample format and sample rate.
+     @brief Returns a tensor of audio from the frame that is desiredLength samples long in the specified sample format and sample rate.
      @param format (optional) the bit representation of the samples of the audio to return. By default, 32-bit float is used
      @param sampleRate (optional) the number of samples that occur in a single second of audio, in Hertz. By default, 48kHz is used.
-     @returns a pointer to a buffer of audio.
-     @discussion This method returns a pointer to a buffer so that the move constructor of the pointer is used and not the copy constructor of the SampleBuffer.
-     If the copy constructor is used, the data will be freed. The samplebuffer contains desiredLength samples so that it returns the fixed size the instantiator expects
-     when creating the audio frame, even if the source audio is not of the proper length. Audio is resampled and sample format is changed if necessary before copying
-     to the buffer.
+     @returns a torch tensor containing downmixed (averaged) audio of the channels
+     @discussion The tensor contains desiredLength samples so that it returns the fixed size the instantiator expects when creating
+     the audio frame, even if the source audio is not of the proper length. Audio is resampled and sample format is changed if necessary
+     before copying to the buffer.
      */
-    std::unique_ptr<SampleBuffer> fetchAudio(sampleFormat format=floatSample, int sampleRate=48000);
-    
-private:
-    /**
-     @brief The hash value stored to represent the current state of the audio frame.
-     */
-    size_t cachedHash;
-    
-    std::unique_ptr<SampleBuffer> monoAudio(sampleFormat format=floatSample, int sampleRate=48000);
+    torch::Tensor downmixedAudio(sampleFormat format=floatSample, int sampleRate=48000);
 };
 
+
 /**
- @brief A class that defines a collection of audio frames belonging to a single track.
+ @brief A class that manages the creation and updating of labels on a single or multichannel track.
+ @discussion This class is the interface for a single track, from the perspective of an end user. It will handle the creation
+ and updating of a label track associated with a single or multichannel track by using a frame-wise representation and managing
+ updates when the frames are no longer valid. This class will also handle its own deletion by making calls to its parent, the IALLabeler.
  */
 class IALAudioFrameCollection : std::enable_shared_from_this<IALAudioFrameCollection>
 {
 public:
-    /**
-     @brief The main WaveTrack associated with an audio track in Audacity.
-     */
-    const std::weak_ptr<WaveTrack> primaryTrack;
+    IALModel &classifier;
     
-    /**
-     @brief The initializer of an audio frame collection that takes a reference track.
-     @param track The reference wave track that the collection will create frames for.
-     @param checkAudio (optional) a boolean indicating whether to initialize the hashed state of a frame.
-     @returns an instance of IALAudioFrameCollection
-     */
-    IALAudioFrameCollection(std::weak_ptr<WaveTrack> primaryTrack, bool checkAudio=false);
-    
-    /**
-     @brief Ensures the correct number of frames are allocated for the reference wavetrack
-     */
-    void validateFrameCollection();
-    
-    
-    const std::vector<std::weak_ptr<WaveTrack>> channels();
-    void addChannel(std::weak_ptr<WaveTrack> channel);
-    void removeChannel(std::weak_ptr<WaveTrack> channel);
-    bool containsChannel(std::weak_ptr<WaveTrack> channel);
-    
-    std::vector<std::string> collectionLabels();
-    
-    // Iterator definition
-    using audioFrames = std::vector<std::shared_ptr<IALAudioFrame>>;
-    using iterator = typename audioFrames::iterator;
-    using const_iterator = typename audioFrames::const_iterator;
-    iterator begin() { return frames.begin(); }
-    iterator end() { return frames.end(); }
-    const_iterator cbegin() const { return frames.cbegin(); }
-    const_iterator cend() const { return frames.cend(); }
+    IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel);
+        
+    size_t numChannels();
+    void iterateChannels(std::function<void(WaveTrack &channel, size_t idx, bool *stop)> loopBlock);
+    bool addChannel(std::weak_ptr<WaveTrack> channel);
     
 private:
-    /**
-     @brief A collection of pointers to audio frames, which may or may not be valid.
-     */
-    std::vector<std::shared_ptr<IALAudioFrame>> frames;
-    
-    /**
-     @brief The collection of tracks belonging to a single Audacity audio track. Typically this means a left and right channel in a stereo file.
-     */
-    std::vector<std::weak_ptr<WaveTrack>> channelVector;
-    
-    /**
-     @brief Creates frames for the specified indices of the frames vector.
-     @param startIdx the first frame to create (inclusive).
-     @param endIdx the last frame to create (exclusive).
-     @param checkAudio (optional) whether to properly initialize the hash value (default to false)
-     */
-    void createFramesForRange(int startIdx, int endIdx, bool checkAudio=false);
-};
-
-
-
-class IALAudioFrameCollection2 : std::enable_shared_from_this<IALAudioFrameCollection2>
-{
-public:
-    
-    IALAudioFrameCollection2(std::weak_ptr<WaveTrack> track);
-    
-    std::vector<std::weak_ptr<WaveTrack>> channels();
-    bool addChannel(std::weak_ptr<WaveTrack> track);
-    bool removeChannel(std::weak_ptr<WaveTrack> track);
-    
-    
-    
-private:
-    class IALAudioFrame
-    {
-    public:
-        const sampleCount start;
-        const size_t desiredLength;
-        
-        std::string label();
-        
-        IALAudioFrame(const IALAudioFrameCollection2 &collection, const sampleCount start, size_t desiredLength);
-        
-    private:
-        const IALAudioFrameCollection2 &collection;
-        
-        bool audioDidChange();
-        bool audioIsSilent(float threshold=-80);
-        bool downmixedAudio(sampleFormat format=floatSample, int sampleRate=48000);
-    };
-    
-    std::vector<std::weak_ptr<WaveTrack>> channelVector;
+    std::vector<std::weak_ptr<WaveTrack>> channels;
     std::vector<IALAudioFrame> audioFrames;
+    TrackId leaderTrackId;
     
-    void handleDeletedTrack();
-    void extendFramesToLength(size_t length);
+    size_t trackSampleRate();
+    
+    bool containsChannel(std::weak_ptr<WaveTrack> channel);
+    void handleDeletedChannel(size_t deletedChannelIdx);
+    void updateCollectionLength();
 };
 
 #endif /* IALInputAudioFrame_hpp */

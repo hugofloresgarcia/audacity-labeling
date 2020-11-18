@@ -16,70 +16,51 @@
 #include "../Track.h"
 #include "../WaveClip.h"
 #include "IALModel.hpp"
+#include "IALLabeler.hpp"
 
 
 #pragma mark AudioFrame - Public
 
-IALAudioFrame::IALAudioFrame(std::weak_ptr<IALAudioFrameCollection> collection, sampleCount start, size_t desiredLength, bool checkAudio)
-    : collection(collection), start(start), desiredLength(desiredLength), label(""), cachedHash(arc4random())
+IALAudioFrame::IALAudioFrame(IALAudioFrameCollection &collection, const sampleCount start, const size_t desiredLength)
+    : collection(collection), start(start), desiredLength(desiredLength), cachedHash(arc4random())
 {
-    if (checkAudio)
-    {
-        audioDidChange();
-    }
 }
 
-std::string IALAudioFrame::labelAudio(sampleFormat format, int sampleRate)
+std::string IALAudioFrame::label()
 {
-    std::unique_ptr<SampleBuffer> audio = monoAudio(format, sampleRate);
-
-    //  load model
-    IALModel model(/* modelPath: */ wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString(),
-            /* instrumentListPath*/ wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString());
-
-    // convert buffer to tensor
-    auto options = torch::TensorOptions().dtype(torch::kFloat32);
-    torch::Tensor audioTensor = torch::from_blob(audio->ptr(), desiredLength, options);
-
-    // reshape into (batch, channels, sample)
-    audioTensor = model.padAndReshape(audioTensor);
-
-    // get back class labels from model
-    std::vector<std::string> predictions = model.predictInstruments(audioTensor, /*confidenceThreshold: */0.3);
-    for (const auto &e : predictions) std::cout << e << "\n";
-
-    label = predictions[0];
+    if (!audioDidChange())
+    {
+        return cachedLabel;
+    }
+    
+    if (audioIsSilent())
+    {
+        cachedLabel = "Silence";
+        return cachedLabel;
+    }
+    
+    torch::Tensor modelInput = downmixedAudio();
+    std::vector<std::string> predictions = collection.classifier.predictInstruments(modelInput, 0.3);
     return predictions[0];
 }
 
+#pragma mark AudioFrame - Private
 
 bool IALAudioFrame::audioIsSilent(float threshold)
 {
     bool silent = true;
-
-    for (std::weak_ptr<WaveTrack> channel : collection.lock()->channels())
+    
+    collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
-        if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
+        double startTime = channel.LongSamplesToTime(start);
+        double endTime = channel.LongSamplesToTime(start.as_size_t() + sourceLength(channel));
+        
+        if (20 * std::log10(channel.GetRMS(startTime, endTime)) > threshold)
         {
-            // Convert samples to times
-            double startTime = strongChannel->LongSamplesToTime(start);
-            double endTime = strongChannel->LongSamplesToTime(start.as_size_t() + sourceLength(channel));
-            
-            // Use short-circuiting to skip checks once one fails
-            silent = silent && 20*std::log10(strongChannel->GetRMS(startTime, endTime)) < threshold;
-        }
-
-        else
-        {
-            // Handle invalid track?
+            *stop = true;
             silent = false;
         }
-    }
-    
-    if (silent)
-    {
-        label = "Silence";
-    }
+    });
     
     return silent;
 }
@@ -91,34 +72,28 @@ bool IALAudioFrame::audioDidChange()
 {
     float sampleTotal = 0.0f;
     
-    for (std::weak_ptr<WaveTrack> channel : collection.lock()->channels())
+    collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
-        if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
-        {
-            sampleFormat format = strongChannel->GetSampleFormat();
-            size_t actualLength = sourceLength(channel);
-            
-            SampleBuffer startBuffer(1, format);
-            strongChannel->Get(startBuffer.ptr(), format, start, 1);
-            
-            SampleBuffer middleBuffer(1, format);
-            strongChannel->Get(middleBuffer.ptr(), format, (start.as_size_t() + actualLength) / 2, 1);
-            
-            SampleBuffer endBuffer(1, format);
-            strongChannel->Get(endBuffer.ptr(), format, start.as_size_t() + actualLength, 1);
-            
-            float startSample = *(float *)startBuffer.ptr();
-            float midSample = *(float *)middleBuffer.ptr();
-            float endSample = *(float *)startBuffer.ptr();
-            
-            sampleTotal += startSample + midSample + endSample;
-        }
+        sampleFormat format = channel.GetSampleFormat();
+        size_t actualLength = sourceLength(channel);
         
-        else
-        {
-            // Handle invalid track?
-        }
-    }
+        // Grab first, middle, and last sample from each track
+        
+        SampleBuffer startBuffer(1, format);
+        channel.Get(startBuffer.ptr(), format, start, 1);
+        
+        SampleBuffer middleBuffer(1, format);
+        channel.Get(middleBuffer.ptr(), format, (start.as_size_t() + actualLength) / 2, 1);
+        
+        SampleBuffer endBuffer(1, format);
+        channel.Get(endBuffer.ptr(), format, start.as_size_t() + actualLength, 1);
+        
+        float startSample = *(float *)startBuffer.ptr();
+        float midSample = *(float *)middleBuffer.ptr();
+        float endSample = *(float *)startBuffer.ptr();
+        
+        sampleTotal += startSample + midSample + endSample;
+    });
     
     std::hash<float> float_hasher;
     size_t newHash = float_hasher(sampleTotal);
@@ -133,233 +108,253 @@ bool IALAudioFrame::audioDidChange()
 }
 
 
-size_t IALAudioFrame::sourceLength(const std::weak_ptr<WaveTrack> &channel)
+size_t IALAudioFrame::sourceLength(WaveTrack &track)
 {
-    if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
-    {
-        sampleCount lastSample = strongChannel->TimeToLongSamples(strongChannel->GetEndTime());
-        
-        // Should be length for all frames excluding the last.
-        return std::min(start.as_size_t() + desiredLength, lastSample.as_size_t()) - start.as_size_t();
-    }
-    
-    return 0;
+    // Should be length for all frames excluding the last.
+    sampleCount lastSample = track.TimeToLongSamples(track.GetEndTime());
+    return std::min(start.as_size_t() + desiredLength, lastSample.as_size_t()) - start.as_size_t();
 }
 
 
-#pragma mark AudioFrame - Private
-
-
-std::unique_ptr<SampleBuffer> IALAudioFrame::monoAudio(sampleFormat format, int sampleRate)
+torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 {
     auto buffer = std::make_unique<SampleBuffer>(desiredLength, format);
-    size_t numChannels = collection.lock()->channels().size();
+    size_t numChannels = collection.numChannels();
     
-    for (std::weak_ptr<WaveTrack> channel : collection.lock()->channels())
+    torch::Tensor samples = torch::empty({1, static_cast<long long>(numChannels), static_cast<long long>(desiredLength)});
+    
+    collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
+    {
+        sampleFormat originalFormat = channel.GetSampleFormat();
+        double originalSampleRate = channel.GetRate();
+        size_t actualLength = sourceLength(channel);
+        
+        SampleBuffer channelBuffer = SampleBuffer(desiredLength, format);
+        
+        // Only modify the track if it needs to be changed
+        if (originalFormat != format
+            || originalSampleRate != sampleRate
+            || actualLength != desiredLength)
+        {
+            // Fetch Project Information
+            AudacityProject *project = channel.GetOwner()->GetOwner();
+            SampleBlockFactoryPtr sbFactory = TrackFactory::Get(*project).GetSampleBlockFactory();
+
+            // Create a waveclip that will be used to convert the samples
+            WaveClip conversionClip(sbFactory, originalFormat, channel.GetRate(), channel.GetWaveColorIndex());
+
+            // Copy the samples into a buffer
+            SampleBuffer transferBuffer(actualLength, originalFormat);
+
+            channel.Get(transferBuffer.ptr(), originalFormat, start, actualLength);
+            
+            // Copy into the clip and transform audio
+            conversionClip.Append(transferBuffer.ptr(), originalFormat, desiredLength);
+            
+            // CONVERSIONS: Length, Format, and Sample Rate
+            
+            if (desiredLength > actualLength)
+            {
+                // This is where we could change the behavior of the last sample
+                conversionClip.AppendSilence(desiredLength - actualLength, 0);
+            }
+            
+            if (originalFormat != format)
+            {
+                conversionClip.ConvertToSampleFormat(format);
+            }
+            
+            if (originalSampleRate != sampleRate)
+            {
+                conversionClip.Resample(sampleRate);
+            }
+            
+            // Copy one last time into a buffer.
+            conversionClip.GetSamples(channelBuffer.ptr(), format, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
+        }
+        else
+        {
+            channel.Get(channelBuffer.ptr(), format, start, desiredLength);
+        }
+        
+        torch::Tensor channelTensor = torch::from_blob(channelBuffer.ptr(),
+                                                       desiredLength,
+                                                       torch::TensorOptions().dtype(torch::kFloat32));
+        
+        samples.index_put_({0, torch::indexing::TensorIndex(static_cast<int64_t>(idx)), torch::indexing::Slice()}, channelTensor);
+    });
+    
+    // Downmix, then shape appropriately for the model.
+    torch::Tensor monoAudio = collection.classifier.downmix(samples);
+    return collection.classifier.padAndReshape(monoAudio);
+}
+
+
+#pragma mark Collection - Public
+
+
+
+IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel)
+    : classifier(classifier)
+{
+    if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
+    {
+        std::shared_ptr<TrackList> tracklist = strongChannel->GetOwner();
+        TrackIter<Track> iter = tracklist->FindLeader(strongChannel.get());
+//        std::shared_ptr<WaveTrack> primaryChannel = *(tracklist->FindLeader(strongChannel.get()));
+    }
+}
+
+
+bool IALAudioFrameCollection::addChannel(std::weak_ptr<WaveTrack> channel)
+{
+    if (!containsChannel(channel))
     {
         if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
         {
-            sampleFormat originalFormat = strongChannel->GetSampleFormat();
-            double originalSampleRate = strongChannel->GetRate();
-            size_t actualLength = sourceLength(channel);
+            TrackId trackId = strongChannel->GetId();
             
-            SampleBuffer iterableBuffer = SampleBuffer(desiredLength, format);
-            
-            // Only modify the track if it needs to be changed
-            if (originalFormat != format || originalSampleRate != sampleRate || actualLength != desiredLength)
+            if (trackId == leaderTrackId)
             {
-                // Fetch Project Information
-                AudacityProject *project = strongChannel->GetOwner()->GetOwner();
-                SampleBlockFactoryPtr sbFactory = TrackFactory::Get(*project).GetSampleBlockFactory();
-
-                // Create a waveclip that will be used to convert the samples
-                WaveClip conversionClip(sbFactory, originalFormat, strongChannel->GetRate(), strongChannel->GetWaveColorIndex());
-
-                // Copy the samples into a buffer
-                SampleBuffer transferBuffer(actualLength, originalFormat);
-
-                strongChannel->Get(transferBuffer.ptr(), originalFormat, start, actualLength);
-                
-                // Copy into the clip and transform audio
-                conversionClip.Append(transferBuffer.ptr(), originalFormat, desiredLength);
-                
-                // CONVERSIONS: Length, Format, and Sample Rate
-                
-                if (desiredLength > actualLength)
-                {
-                    // This is where we could change the behavior of the last sample
-                    conversionClip.AppendSilence(desiredLength - actualLength, 0);
-                }
-                
-                if (originalFormat != format)
-                {
-                    conversionClip.ConvertToSampleFormat(format);
-                }
-                
-                if (originalSampleRate != sampleRate)
-                {
-                    conversionClip.Resample(sampleRate);
-                }
-                
-                // Copy one last time into a buffer.
-                conversionClip.GetSamples(iterableBuffer.ptr(), format, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
+                channels.push_back(channel);
+                updateCollectionLength();
+                return true;
             }
-            else
-            {
-                strongChannel->Get(iterableBuffer.ptr(), format, start, desiredLength);
-            }
+        }
+    }
+    return false;
+}
+
+
+size_t IALAudioFrameCollection::numChannels()
+{
+    size_t count = 0;
+    
+    iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
+    {
+        count+=1;
+    });
+    
+    return count;
+}
+
+
+#pragma mark Collection - Private
+
+void IALAudioFrameCollection::iterateChannels(std::function<void (WaveTrack &, size_t, bool *)> loopBlock)
+{
+    bool stopIteration = false;
+    size_t currentIdx = 0;
+    size_t iterIdx = 0;
+    
+    for (std::weak_ptr<WaveTrack> weakTrack : channels)
+    {
+        if (std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock())
+        {
+            loopBlock(*strongTrack, currentIdx, &stopIteration);
+            currentIdx += 1;
             
-            // Iterate through buffer to add to top-level
-            for (size_t sampleIdx = 0; sampleIdx < desiredLength; sampleIdx += 1)
+            if (stopIteration)
             {
-                // Grab the sample from the channel
-                float channelSample = *((float *)iterableBuffer.ptr() + sampleIdx);
-            
-                // Add it to the aggregate channel
-                *((float *)buffer->ptr() + sampleIdx) += channelSample;
+                break;
             }
-
         }
         
         else
         {
-            numChannels -= 1;
-            // Handle missing / deallocated channel
-        }
-    }
-    
-    // Average down
-    if (numChannels > 0)
-    {
-        for (size_t sampleIdx = 0; sampleIdx < desiredLength; sampleIdx += 1)
-        {
-            *((float *)buffer->ptr() + sampleIdx) /= numChannels;
-        }
-    }
-    
-    else
-    {
-        return nullptr;
-    }
-    
-    return buffer;
-}
-
-
-
-#pragma mark AudioFrameCollection
-
-IALAudioFrameCollection::IALAudioFrameCollection(std::weak_ptr<WaveTrack> primaryTrack, bool checkAudio) : primaryTrack(primaryTrack)
-{
-    // Create IALAudioFrame Vector
-    frames = std::vector<std::shared_ptr<IALAudioFrame>>(0);
-    
-    // Create Channel Vector
-    channelVector = std::vector<std::weak_ptr<WaveTrack>>(2);
-    channelVector.push_back(primaryTrack);
-    
-    validateFrameCollection();
-}
-
-const std::vector<std::weak_ptr<WaveTrack>> IALAudioFrameCollection::channels()
-{
-    return channelVector;
-}
-
-void IALAudioFrameCollection::addChannel(std::weak_ptr<WaveTrack> channel)
-{
-    channelVector.push_back(channel);
-}
-
-void IALAudioFrameCollection::removeChannel(std::weak_ptr<WaveTrack> channel)
-{
-    size_t idx = 0;
-    std::shared_ptr<WaveTrack> strongChannel = channel.lock();
-    
-    for (std::weak_ptr<WaveTrack> otherChannel : channelVector)
-    {
-        if (strongChannel == otherChannel.lock())
-        {
-            channelVector.erase(channelVector.begin()+idx);
-            break;
+            handleDeletedChannel(iterIdx);
         }
         
-        idx += 1;
+        iterIdx += 1;
     }
 }
 
-void IALAudioFrameCollection::validateFrameCollection()
-{
-    size_t maxNumFrames = 0;
-    
-    for (std::weak_ptr<WaveTrack> channel : channelVector)
-    {
-        if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
-        {
-            size_t numFrames = ceil(strongChannel->GetEndTime());
-            maxNumFrames = std::max(maxNumFrames, numFrames);
-        }
-    }
-    
-    if (frames.size() != maxNumFrames)
-    {
-        size_t lastIdx = std::max((int)frames.size() - 1, 0);
-        
-        frames.resize(maxNumFrames);
-        createFramesForRange(lastIdx, maxNumFrames);
-    }
-}
-
-void IALAudioFrameCollection::createFramesForRange(int startIdx, int endIdx, bool checkAudio)
-{
-    if (std::shared_ptr<WaveTrack> strongPrimaryTrack = primaryTrack.lock())
-    {
-        int sr = strongPrimaryTrack->GetRate();
-        
-        auto weakSelf = std::weak_ptr<IALAudioFrameCollection>(shared_from_this());
-        
-        for (int currIdx = startIdx; currIdx < endIdx; currIdx++)
-        {
-            sampleCount startSample = strongPrimaryTrack->TimeToLongSamples(currIdx);
-            frames[currIdx] = (std::make_shared<IALAudioFrame>(IALAudioFrame(weakSelf, startSample, sr)));
-        }
-    }
-}
 
 bool IALAudioFrameCollection::containsChannel(std::weak_ptr<WaveTrack> channel)
 {
-    for (std::weak_ptr<WaveTrack> existingChannel : channelVector)
+    if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
     {
-        if (existingChannel.lock() == channel.lock())
+        iterateChannels([&](WaveTrack &track, size_t idx, bool *stop)
         {
-            return true;
-        }
+            if (strongChannel->GetId() == track.GetId())
+            {
+                return true;
+            }
+        });
     }
-    
     return false;
 }
 
-std::vector<std::string> IALAudioFrameCollection::collectionLabels()
+void IALAudioFrameCollection::handleDeletedChannel(size_t deletedChannelIdx)
 {
-    std::vector<std::string> labels;
+    size_t numChannels = channels.size();
     
-    std::string lastLabel = frames[0]->label;
-    size_t startIdx = 0;
-    
-    for (size_t idx = 1; idx < frames.size(); idx++)
+    for (size_t idx = deletedChannelIdx; idx < numChannels; idx++)
     {
-        std::string frameLabel = frames[0]->label;
-        
-        // Write labels
-        if (frameLabel != lastLabel)
+        if (channels[idx].expired())
         {
-            std::string newLine = lastLabel + "\t" + std::to_string(startIdx) + "\t" + std::to_string(idx) + "\n";
-            labels.push_back(newLine);
-            
-            startIdx = idx;
-            lastLabel = frameLabel;
+            channels.erase(channels.begin()+idx);
+            numChannels -= 1;
         }
     }
     
-    return labels;
+    if (channels.size() == 0)
+    {
+        // delete frame
+        
+    }
+    
+    updateCollectionLength();
+}
+
+size_t IALAudioFrameCollection::trackSampleRate()
+{
+    size_t sampleRate;
+    
+    iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
+    {
+        if (idx == 0)
+        {
+            sampleRate = channel.GetRate();
+        }
+        
+        else if (sampleRate != channel.GetRate())
+        {
+            std::runtime_error("Differing Sample Rates in AudioFrame");
+        }
+    });
+    
+    return sampleRate;
+}
+
+void IALAudioFrameCollection::updateCollectionLength()
+{
+    size_t maxFrameCount = 0;
+    
+    iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
+    {
+        size_t framesInChannel = ceil(channel.GetEndTime());
+        maxFrameCount = std::max(maxFrameCount, framesInChannel);
+    });
+    
+    if (audioFrames.size() != maxFrameCount)
+    {
+        size_t previousFrameCount = audioFrames.size();
+    
+        if (previousFrameCount < maxFrameCount)
+        {
+            size_t sampleRate = trackSampleRate();
+            
+            for (size_t frameIdx = previousFrameCount; frameIdx < maxFrameCount; frameIdx++)
+            {
+                sampleCount startSample = frameIdx * sampleRate;
+                audioFrames.emplace_back(IALAudioFrame(*this, startSample, sampleRate));
+            }
+        }
+        
+        else
+        {
+            audioFrames.resize(maxFrameCount, IALAudioFrame(*this, sampleCount(0), 0));
+        }
+    }
 }
