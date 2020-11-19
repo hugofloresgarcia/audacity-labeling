@@ -74,8 +74,8 @@ torch::Tensor IALModel::downmix(const torch::Tensor audioBatch) {
     return downmixedAudio;
 }
 
-/*
-@brief: pads an audio tensor with shape (samples,)
+/**
+ @brief: pads an audio tensor with shape (samples,)
      with the necessary zeros and then reshapes to (batch, 1, chunkLen)
 @params:
     torch::Tensor audio: MONO audio tensor with shape (samples,)

@@ -138,7 +138,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         {
             // Fetch Project Information
             AudacityProject *project = channel.GetOwner()->GetOwner();
-            SampleBlockFactoryPtr sbFactory = TrackFactory::Get(*project).GetSampleBlockFactory();
+            SampleBlockFactoryPtr sbFactory = WaveTrackFactory::Get(*project).GetSampleBlockFactory();
 
             // Create a waveclip that will be used to convert the samples
             WaveClip conversionClip(sbFactory, originalFormat, channel.GetRate(), channel.GetWaveColorIndex());
@@ -272,17 +272,18 @@ void IALAudioFrameCollection::iterateChannels(std::function<void (WaveTrack &, s
 
 bool IALAudioFrameCollection::containsChannel(std::weak_ptr<WaveTrack> channel)
 {
+    bool contains = false;
     if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
     {
         iterateChannels([&](WaveTrack &track, size_t idx, bool *stop)
         {
             if (strongChannel->GetId() == track.GetId())
             {
-                return true;
+                contains = true;
             }
         });
     }
-    return false;
+    return contains;
 }
 
 void IALAudioFrameCollection::handleDeletedChannel(size_t deletedChannelIdx)
