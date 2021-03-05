@@ -20,8 +20,8 @@
 
 #pragma mark ClientData Initialization
 
-static const std::string kModelPath = "";//wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString();
-static const std::string kInstrumentListPath = "";//wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString();
+static const std::string kModelPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString();
+static const std::string kInstrumentListPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString();
 
 /**
  @brief An anonymous function that initializes an instance of IALLabeler.

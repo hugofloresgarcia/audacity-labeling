@@ -16,6 +16,7 @@ class IALModel {
     const int chunkLen = 48000;
 
     public:
+        IALModel();
         // constructor: IALModel model(wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString());
         IALModel(const std::string &modelPath, const std::string &instrumentListPath);
 

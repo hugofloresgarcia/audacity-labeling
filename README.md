@@ -1,5 +1,4 @@
 ## audacity labeling 
-For the python implementation of the labeler, see the branch `python-branch`
 
 ## building audacity (with labeler)
 I've only tested this on MacOS Catalina (10.15.3)

@@ -12,6 +12,10 @@ IALModel::IALModel(const std::string &modelPath, const std::string &instrumentLi
     instruments = loadInstrumentList(instrumentListPath);
 }
 
+IALModel::IALModel(){
+
+}
+
 /**
  @brief: returns a torch::jit::model specified by filepath
  @param filepath a string containing the filepath
