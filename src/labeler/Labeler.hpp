@@ -1,3 +1,4 @@
+
 //
 //  Labeler.hpp
 //  Audacity
@@ -9,28 +10,15 @@
 #define Labeler_hpp
 
 #include <stdio.h>
+#include <iostream>
+#include <fstream>
 
 class CommandContext;
-class SampleBuffer;
 
-class IALLabeler {
-    const CommandContext &context;
-
-public:
-    IALLabeler(const CommandContext &context);
-        
-    void labelTracks();
-    
-private:
-    std::vector<SampleBuffer> fetchProjectAudio();
-};
-
-namespace IALLabelerSpace {
-
-void LabelTrack(const CommandContext &context, const std::string &audioFilePath);
-// std::ofstream LabelLogger;
-void LabelTracks(const CommandContext &context);
+namespace IALLabeler {
+    void LabelTrack(const CommandContext &context, const std::string &audioFilePath);
+    // std::ofstream LabelLogger;
 }
 
 
-#endif
+#endif /* PythonBridge_hpp */

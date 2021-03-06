@@ -1,4 +1,3 @@
-
 //
 //  Labeler.cpp
 //  Audacity
@@ -9,74 +8,17 @@
 #include <iostream>
 #include <cmath>
 
-// #include <torch/script.h>
+#include <torch/script.h>
 #include <wx/textfile.h>
 
 #include "Labeler.hpp"
-#include "portaudio.h"
 #include "WaveTrack.h"
 #include "../FileNames.h"
 #include "../commands/CommandContext.h"
 #include "../LabelTrack.h"
 #include "../ProjectHistory.h"
-#include "../WaveClip.h"
-#include "../Track.h"
-#include "../SampleBlock.h"
 
 #include "IALModel.hpp"
-
-
-#pragma mark IALLabeler Class Definition
-
-IALLabeler::IALLabeler(const CommandContext &context) : context(context) {}
-
-void IALLabeler::labelTracks() {
-    std::vector<SampleBuffer> waveform = this->fetchProjectAudio();
-}
-
-std::vector<SampleBuffer> IALLabeler::fetchProjectAudio() {
-    auto &project = this->context.project;
-    TrackList &tracklist = TrackList::Get(project);
-    
-    TrackFactory &trackFactory = TrackFactory::Get(project);
-    SampleBlockFactoryPtr sampleBlockFactory = trackFactory.GetSampleBlockFactory();
-    
-    for (Track *track : tracklist) {
-        if (dynamic_cast<WaveTrack *>(track) != nullptr) {
-            WaveTrack *waveTrack = (WaveTrack *)track;
-            
-            for (WaveClip *clip : waveTrack->GetAllClips()) {
-                WaveClip copyClip(*clip, sampleBlockFactory, true);
-                copyClip.ConvertToSampleFormat(floatSample);
-                
-                // ******************
-                // // hugo: resample to 48kHz
-                copyClip.Resample(48000);                    
-                SampleBuffer buffer(copyClip.GetNumSamples().as_size_t(), floatSample);
-                copyClip.GetSamples(buffer.ptr(), floatSample, copyClip.GetStartSample(), copyClip.GetNumSamples().as_size_t());
-                    
-                // ******************
-                //  load model
-                IALModel model(/* modelPath: */ wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString(), 
-                        /* instrumentListPath*/ wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString());
-
-                // convert buffer to tensor
-                auto options = torch::TensorOptions().dtype(torch::kFloat32);
-                torch::Tensor audio = torch::from_blob(buffer.ptr(), copyClip.GetNumSamples().as_size_t(), options);
-                // reshape into (batch, channels, sample)
-                audio = model.padAndReshape(audio);
-                // get back class labels from model
-                std::vector<std::string> predictions = model.predictInstruments(audio, /*confidenceThreshold: */0.3);       
-                for (const auto &e : predictions) std::cout << e << "\n";
-                // ******************]
-            }
-        }
-    }    
-            
-    std::vector<SampleBuffer>ret;
-    return ret;
-}
-
 
 struct AudacityLabel {
     int start;
@@ -89,6 +31,48 @@ struct AudacityLabel {
         return std::to_string(start) + "\t" + std::to_string(end) + "\t" + label;
     }
 };
+
+
+std::vector<std::vector<essentia::Real>> loadAudioThroughVGGish(const std::string &filepath) {
+
+    essentia::init();
+    essentia::Real sampleRate = 16000;
+    AlgorithmFactory &factory = AlgorithmFactory::instance();
+
+    std::string vggishModelPath = wxFileName(FileNames::ResourcesDir(), wxT("vggish.pb")).GetFullPath().ToStdString();
+
+    Algorithm *loader = factory.create("MonoLoader",
+                                       "filename", filepath,
+                                       "sampleRate", sampleRate);
+                                           
+    Algorithm *vggish = factory.create("TensorflowPredictVGGish",
+                                       "input", "vggish/input_features",
+                                       "output", "vggish/fc2/BiasAdd",
+                                       "patchHopSize", 0,
+                                       "graphFilename", vggishModelPath);
+    
+    // Connect Algorithms
+    // EasyLoader -> VGGish
+    std::vector<essentia::Real> audioBuffer;
+    loader->output("audio").set(audioBuffer);
+    vggish->input("signal").set(audioBuffer);
+    
+    // VGGish -> Output
+    std::vector<std::vector<essentia::Real>> embeddings;
+    vggish->output("predictions").set(embeddings);
+    
+    
+    // Run Algos
+    loader->compute();
+    vggish->compute();
+    
+    delete loader;
+    delete vggish;
+    factory.shutdown();
+    essentia::shutdown();
+
+    return embeddings;   
+}
 
 
 std::vector<std::string>loadInstrumentList(const std::string &filepath) {
@@ -228,61 +212,59 @@ std::map<std::string, std::vector<AudacityLabel>> createAudacityLabels(const std
     return audacityLabels;
 }
 
-// void IALLabelerSpace::LabelTrack(const CommandContext &context, const std::string &filepath) {
-//     // start logging
+void IALLabeler::LabelTrack(const CommandContext &context, const std::string &filepath) {
+    // start logging
 
-//     auto &project = context.project;
-//     auto &trackFactory = TrackFactory::Get( project );
-//     auto &tracks = TrackList::Get( project );
+    static const std::string kModelPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-model.pt")).GetFullPath().ToStdString();
+    static const std::string kInstrumentListPath = wxFileName(FileNames::ResourcesDir(), wxT("ial-instruments.txt")).GetFullPath().ToStdString();
+
+    IALModel model(kModelPath, kInstrumentListPath);
+
+    auto &project = context.project;
+    auto &trackFactory = TrackFactory::Get( project );
+    auto &tracks = TrackList::Get( project );
     
-//     std::string classifierLabelsPath = wxFileName(FileNames::ResourcesDir(), wxT("classifier_instruments.txt")).GetFullPath().ToStdString();
+    // Using the VGGish embeddings and output classes, label the embeddings
+    std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
     
-//     // Load audio file as VGGish embeddings
-//     std::vector<std::vector<essentia::Real>> embeddings = loadAudioThroughVGGish(filepath);
+    // In the event the song was too short to label, don't label it.
+    if (trackLabels.empty()) {
+        return;
+    }
     
-//     // Load the classification classes into a vector
-//     std::vector<std::string> instruments = loadInstrumentList(classifierLabelsPath);
+    // Given embedding-wise labels, create a collection of trackwise labels for each instrument
+    std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
     
-//     // Using the VGGish embeddings and output classes, label the embeddings
-//     std::vector<std::string> trackLabels = labelTrackEmbeddings(embeddings, instruments);
-    
-//     // In the event the song was too short to label, don't label it.
-//     if (trackLabels.empty()) {
-//         return;
-//     }
-    
-//     // Given embedding-wise labels, create a collection of trackwise labels for each instrument
-//     std::map<std::string, std::vector<AudacityLabel>> labels = createAudacityLabels(trackLabels);
-    
-//     // Add a Label Track for each class of labels
-//     for (auto &labelTrack : labels) {
-//         wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
-//         wxTextFile labelFile(labelFileName);
+    // Add a Label Track for each class of labels
+    for (auto &labelTrack : labels) {
+        wxString labelFileName = wxFileName(FileNames::DataDir(), labelTrack.first + ".txt").GetFullPath();
+        wxTextFile labelFile(labelFileName);
         
-//         // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
-//         if (labelFile.Exists()) {
-//             labelFile.Clear();
-//         }
-//         else {
-//             labelFile.Create();
-//         }
-//         labelFile.Open();
+        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
+        if (labelFile.Exists()) {
+            labelFile.Clear();
+        }
+        else {
+            labelFile.Create();
+        }
+        labelFile.Open();
         
-//         // Write each timestamp to file
-//         for (auto &label : labelTrack.second) {
-//             labelFile.AddLine(wxString(label.toStdString()));
-//         }
+        // Write each timestamp to file
+        for (auto &label : labelTrack.second) {
+            labelFile.AddLine(wxString(label.toStdString()));
+        }
         
-//         // Create a new LabelTrack and add it to the project
-//         auto newTrack = trackFactory.NewLabelTrack();
-//         newTrack->SetName(wxString(labelTrack.first));
-//         newTrack->Import(labelFile);
-//         tracks.Add(newTrack);
+        // Create a new LabelTrack and add it to the project
+        auto newTrack = trackFactory.NewLabelTrack();
+        newTrack->SetName(wxString(labelTrack.first));
+        newTrack->Import(labelFile);
+        tracks.Add(newTrack);
         
-//         // Record Adding the Track
-//         ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
+        // Record Adding the Track
+        ProjectHistory::Get(project).PushState(XO("Automatically Imported '%s' Labels for '%s'").Format(labelTrack.first, filepath), XO("Auto-Imported Labels"));
         
-//         labelFile.Close();
-//         wxRemove(labelFileName);
-//     }
-// }
+
+        labelFile.Close();
+        wxRemove(labelFileName);
+    }
+}

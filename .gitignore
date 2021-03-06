@@ -212,3 +212,6 @@ win/xaudacity.ico
 *.pb 
 *.pt
 wxWidgets/
+
+# torchscript stuff
+src/labeler/libtorch*
