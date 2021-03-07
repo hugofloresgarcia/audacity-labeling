@@ -128,10 +128,10 @@ public:
     size_t numChannels();
     void iterateChannels(std::function<void(WaveTrack &channel, size_t idx, bool *stop)> loopBlock);
     bool addChannel(std::weak_ptr<WaveTrack> channel);
+    std::vector<IALAudioFrame> audioFrames;
     
 private:
     std::vector<std::weak_ptr<WaveTrack>> channels;
-    std::vector<IALAudioFrame> audioFrames;
     TrackId leaderTrackId;
     
     size_t trackSampleRate();

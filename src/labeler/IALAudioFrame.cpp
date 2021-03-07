@@ -199,6 +199,7 @@ IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak
 {
     if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
     {
+        leaderTrackId = strongChannel->GetId();
         std::shared_ptr<TrackList> tracklist = strongChannel->GetOwner();
         TrackIter<Track> iter = tracklist->FindLeader(strongChannel.get());
 //        std::shared_ptr<WaveTrack> primaryChannel = *(tracklist->FindLeader(strongChannel.get()));

@@ -86,7 +86,8 @@ torch::Tensor IALModel::downmix(const torch::Tensor audioBatch) {
 @returns:
     torch::Tensor reshapedAudio: audio tensor with shape (batch, 1, chunkLen)
 */
-torch::Tensor IALModel::padAndReshape(const torch::Tensor audio){
+torch::Tensor IALModel::padAndReshape(torch::Tensor audio){
+    audio = audio[0][0];
     auto length = audio.sizes()[0];
     
     // RIGHT: pad with zeros to meet length
