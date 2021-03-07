@@ -212,3 +212,4 @@ win/xaudacity.ico
 *.pb 
 *.pt
 wxWidgets/
+src/labeler/libtorch*
