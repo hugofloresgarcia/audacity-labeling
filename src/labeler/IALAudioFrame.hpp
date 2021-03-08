@@ -21,6 +21,21 @@ class SampleBuffer;
 class IALModel;
 class TrackId;
 
+
+struct AudacityLabel {
+    float start;
+    float end;
+    std::string label;
+    
+    AudacityLabel() : start(0), end(0), label("") {};
+    AudacityLabel(float _start, float _end, std::string _label) : start(float(_start)), end(float(_end)), label(_label) {};
+    
+    std::string toStdString() {
+        return std::to_string(start) + "\t" + std::to_string(end) + "\t" + label;
+    }
+};
+
+
 class IALAudioFrameCollection;
 
 /**
@@ -50,7 +65,7 @@ public:
      If nothing changed, then the cachedLabel will be returned. If change is detected, a silence check will be run, and if the audio is not silent,
      the model will predict the label for the frame.
      */
-    std::string label();
+    AudacityLabel label();
     
     /**
      @brief The constructor for an audio frame that establishes the location of the frame
@@ -75,12 +90,15 @@ private:
     /**
      @brief The last computed label of the audio frame, stored in case the label is requested before the audio changes.
      */
-    std::string cachedLabel;
+    AudacityLabel cachedLabel;
     
     /**
      @brief The length of the frame within the context of the track. Either desiredLength or the remainder of the track, whichever is shorter.
      */
     size_t sourceLength(WaveTrack &track);
+
+    // get an audacitylabel with start time, end time and a label string, given the label
+    AudacityLabel getAudacityLabel(std::string label);
     
     /**
      @brief Detects whether the source audio in this frame has changed from the last time it was checked.
@@ -130,13 +148,16 @@ public:
     bool addChannel(std::weak_ptr<WaveTrack> channel);
     std::vector<IALAudioFrame> audioFrames;
     std::shared_ptr<LabelTrack> labelTrack;
-    
+    size_t trackSampleRate();
+
+    std::weak_ptr<WaveTrack> getLeaderTrack();
+
+    std::vector<AudacityLabel> coalesceLabels(const std::vector<AudacityLabel> &labels);
+    std::vector<AudacityLabel> createAudacityLabels(const std::vector<std::string> &embeddingLabels);
 private:
     std::vector<std::weak_ptr<WaveTrack>> channels;
     TrackId leaderTrackId;
-    
-    size_t trackSampleRate();
-    
+
     bool containsChannel(std::weak_ptr<WaveTrack> channel);
     void handleDeletedChannel(size_t deletedChannelIdx);
     void updateCollectionLength();

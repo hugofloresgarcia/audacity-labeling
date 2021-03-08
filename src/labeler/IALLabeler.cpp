@@ -72,74 +72,6 @@ IALLabeler::IALLabeler(const AudacityProject &project)
 
 # pragma mark Private
 
-struct AudacityLabel {
-    int start;
-    int end;
-    std::string label;
-    
-    AudacityLabel(float start, float end, std::string label) : start(start), end(end), label(label) {};
-    
-    std::string toStdString() {
-        return std::to_string(start) + "\t" + std::to_string(end) + "\t" + label;
-    }
-};
-
-std::vector<AudacityLabel> coalesceLabels(const std::vector<AudacityLabel> &labels) {
-    std::vector<AudacityLabel> coalescedLabels;
-    
-    if (labels.size() == 0) {
-        return coalescedLabels;
-    }
-    
-    int startIdx = 0;
-    for (int i = 0; i < labels.size(); i++) {
-        
-        // Iterate over a range until a label differs from the previous label AND
-        // previous label end time is same as the current label's start time
-        if (labels[i].label != labels[startIdx].label
-            && labels[i - 1].end != labels[i].start) {
-            coalescedLabels.push_back(AudacityLabel(labels[startIdx].start,
-                                                    labels[i - 1].end,
-                                                    labels[startIdx].label));
-            startIdx = i;
-        }
-    }
-    
-    coalescedLabels.push_back(AudacityLabel(labels[startIdx].start,
-                                            labels[labels.size() - 1].end,
-                                            labels[startIdx].label));
-    
-    return coalescedLabels;
-}
-std::vector<AudacityLabel> createAudacityLabels(const std::vector<std::string> &embeddingLabels) {
-    
-    std::vector<AudacityLabel> audacityLabels;
-    
-    float frameLength = 1.0;
-    float windowStartInSeconds = 0;
-    for (const std::string &label : embeddingLabels) {
-        
-        // Round to the nearest second
-        int roundedWindowStart = round(windowStartInSeconds);
-        int roundedWindowEnd = round(windowStartInSeconds + frameLength);
-        
-        // If they are equal, don't add the Audacity Label
-        if (roundedWindowStart == roundedWindowEnd) {
-            windowStartInSeconds += frameLength;
-            continue;
-        }
-        
-        AudacityLabel windowedLabel = AudacityLabel(roundedWindowStart, roundedWindowEnd, label);
-
-        audacityLabels.push_back(windowedLabel);
-        
-        windowStartInSeconds += frameLength;
-    }
-
-    audacityLabels = coalesceLabels(audacityLabels);
-    
-    return audacityLabels;
-}
 
 bool trackInTrackList(TrackList& tracklist, std::shared_ptr<LabelTrack> track){
     // Track *leader = *tracklist.FindLeader(track);
@@ -181,17 +113,16 @@ void IALLabeler::labelTracks()
             IALAudioFrameCollection& frameCollection = tracks.find(leaderID)->second;
             frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
 
-            std::vector<std::string> predictions;
+            std::vector<AudacityLabel> predictions;
             for (auto frame : frameCollection.audioFrames){
-                std::string prediction = frame.label();
+                AudacityLabel prediction = frame.label();
                 predictions.emplace_back(prediction);
             }
 
             // TODO: find a better way to create label tracks than this
             if (!predictions.empty()){
-                std::vector<AudacityLabel> labels = createAudacityLabels(predictions);
 
-                wxString labelFileName = wxFileName(FileNames::DataDir(), predictions[0] + ".txt").GetFullPath();
+                wxString labelFileName = wxFileName(FileNames::DataDir(), predictions[0].label + ".txt").GetFullPath();
                 wxTextFile labelFile(labelFileName);
                 
                 // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
@@ -204,7 +135,7 @@ void IALLabeler::labelTracks()
                 labelFile.Open();
                 
                 // Write each timestamp to file
-                for (auto &label : labels) {
+                for (auto &label : predictions) {
                     labelFile.AddLine(wxString(label.toStdString()));
                 }
 
@@ -220,7 +151,7 @@ void IALLabeler::labelTracks()
                 } else {
                     newTrack = id2labels[leaderID];
                 }
-                newTrack->SetName(wxString(predictions[0]));
+                newTrack->SetName(wxString(predictions[0].label));
                 newTrack->Import(labelFile);
 
                 if (!trackInTrackList(tracklist, newTrack)) {

@@ -20,14 +20,29 @@
 #include "IALLabeler.hpp"
 
 
-#pragma mark AudioFrame - Public
+// #pragma mark AudioFrame - Public
 
 IALAudioFrame::IALAudioFrame(IALAudioFrameCollection &collection, const sampleCount start, const size_t desiredLength)
     : collection(collection), start(start), desiredLength(desiredLength), cachedHash(arc4random())
 {
 }
 
-std::string IALAudioFrame::label()
+AudacityLabel IALAudioFrame::getAudacityLabel(std::string labelstr){
+    std::weak_ptr<WaveTrack> weakTrack = collection.getLeaderTrack();
+    std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
+
+    //TODO: get a primary channel so you can compute source length
+    float sR = float(collection.trackSampleRate());
+    float startSample = float(start.as_double());
+    float lenSample = float(sourceLength(*strongTrack));
+    float startTime = startSample / sR;
+    float endTime = (startSample + lenSample)/sR;
+
+    return AudacityLabel(startTime, endTime, labelstr);
+}
+
+// label the current audio frame.
+AudacityLabel IALAudioFrame::label()
 {
     if (!audioDidChange())
     {
@@ -36,16 +51,19 @@ std::string IALAudioFrame::label()
     
     if (audioIsSilent())
     {
-        cachedLabel = "Silence";
+        cachedLabel = getAudacityLabel("silence");
         return cachedLabel;
     }
     
     torch::Tensor modelInput = downmixedAudio();
     std::vector<std::string> predictions = collection.classifier.predictInstruments(modelInput, 0.3);
-    return predictions[0];
+
+    cachedLabel = getAudacityLabel(predictions[0]);
+
+    return cachedLabel;
 }
 
-#pragma mark AudioFrame - Private
+// #pragma mark AudioFrame - Private
 
 bool IALAudioFrame::audioIsSilent(float threshold)
 {
@@ -117,6 +135,7 @@ size_t IALAudioFrame::sourceLength(WaveTrack &track)
 }
 
 
+//TODO: test with  non-float input audio
 torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 {
     // auto buffer = std::make_unique<SampleBuffer>(desiredLength, format);
@@ -129,7 +148,6 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
     // PaError err;
     // err = Pa_Initialize();
     // if (err != paNoError) { raise(1); }
-
     // PaStreamParameters outputParameters;
     // outputParameters.device = Pa_GetDefaultOutputDevice();
     // outputParameters.sampleFormat = paFloat32;
@@ -137,7 +155,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
     // outputParameters.hostApiSpecificStreamInfo = NULL;
     // outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     // //
-    
+
     collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
         sampleFormat originalFormat = channel.GetSampleFormat();
@@ -176,19 +194,14 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         // // TEST PLAYBACK
         // err = Pa_OpenStream(&stream, NULL, &outputParameters, sampleRate, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
         // if (err != paNoError) { exit(1); }
-
         // if (stream) {
         //     err = Pa_StartStream( stream );
         //     if( err != paNoError ) { exit(1); }
-
         //     err = Pa_WriteStream(stream, buffer.ptr(), conversionClip.GetNumSamples().as_size_t());
         //     if (err != paNoError) { exit(1); }
-
         //     printf("Waiting for playback to finish.\n");
-
         //     while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) { Pa_Sleep(100); }
         //     if( err < 0 ) { exit(1); }
-
         //     err = Pa_CloseStream( stream );
         //     if( err != paNoError ) { exit(1); }
         // }
@@ -201,10 +214,10 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 }
 
 
-#pragma mark Collection - Public
+// #pragma mark Collection - Public
 
 
-
+// constructor. 
 IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel)
     : classifier(classifier)
 {
@@ -212,12 +225,13 @@ IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak
     {
         leaderTrackId = strongChannel->GetId();
         std::shared_ptr<TrackList> tracklist = strongChannel->GetOwner();
-        TrackIter<Track> iter = tracklist->FindLeader(strongChannel.get());
-//        std::shared_ptr<WaveTrack> primaryChannel = *(tracklist->FindLeader(strongChannel.get()));
+        // TrackIter<Track> iter = tracklist->FindLeader(strongChannel.get());
+        // Track* primaryChannel = *(tracklist->FindLeader(strongChannel.get()));
     }
 }
 
-
+// adds a channel to the frame collection, only if it belongs to the same leader as the rest of the collection. 
+// question: does the id of a channel equal the id of its leader track? that seems to be the assumption here
 bool IALAudioFrameCollection::addChannel(std::weak_ptr<WaveTrack> channel)
 {
     if (!containsChannel(channel))
@@ -237,7 +251,7 @@ bool IALAudioFrameCollection::addChannel(std::weak_ptr<WaveTrack> channel)
     return false;
 }
 
-
+// count how many channels are in the collection
 size_t IALAudioFrameCollection::numChannels()
 {
     size_t count = 0;
@@ -250,9 +264,15 @@ size_t IALAudioFrameCollection::numChannels()
     return count;
 }
 
+// TODO: this could cause a segfault if not called properly? should pass a weak ptr instead just in case we don't have a leader track yet. 
+std::weak_ptr<WaveTrack> IALAudioFrameCollection::getLeaderTrack()
+{
+    return channels[0];
+}
 
-#pragma mark Collection - Private
+// #pragma mark Collection - Private
 
+// iterate through channels
 void IALAudioFrameCollection::iterateChannels(std::function<void (WaveTrack &, size_t, bool *)> loopBlock)
 {
     bool stopIteration = false;
@@ -281,7 +301,7 @@ void IALAudioFrameCollection::iterateChannels(std::function<void (WaveTrack &, s
     }
 }
 
-
+// check if the provided channel is already in the collection. 
 bool IALAudioFrameCollection::containsChannel(std::weak_ptr<WaveTrack> channel)
 {
     bool contains = false;
@@ -346,6 +366,7 @@ void IALAudioFrameCollection::updateCollectionLength()
     
     iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
+        // NOTE: this assumes that the time window for a frame collection is 1 second
         size_t framesInChannel = ceil(channel.GetEndTime());
         maxFrameCount = std::max(maxFrameCount, framesInChannel);
     });
@@ -370,4 +391,61 @@ void IALAudioFrameCollection::updateCollectionLength()
             audioFrames.resize(maxFrameCount, IALAudioFrame(*this, sampleCount(0), 0));
         }
     }
+}
+
+std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::vector<AudacityLabel> &labels) {
+    std::vector<AudacityLabel> coalescedLabels;
+    
+    if (labels.size() == 0) {
+        return coalescedLabels;
+    }
+    
+    int startIdx = 0;
+    for (int i = 0; i < labels.size(); i++) {
+        
+        // Iterate over a range until a label differs from the previous label AND
+        // previous label end time is same as the current label's start time
+        if (labels[i].label != labels[startIdx].label
+            && labels[i - 1].end != labels[i].start) {
+            coalescedLabels.push_back(AudacityLabel(labels[startIdx].start,
+                                                    labels[i - 1].end,
+                                                    labels[startIdx].label));
+            startIdx = i;
+        }
+    }
+    
+    coalescedLabels.push_back(AudacityLabel(labels[startIdx].start,
+                                            labels[labels.size() - 1].end,
+                                            labels[startIdx].label));
+    
+    return coalescedLabels;
+}
+std::vector<AudacityLabel> IALAudioFrameCollection::createAudacityLabels(const std::vector<std::string> &embeddingLabels) {
+    
+    std::vector<AudacityLabel> audacityLabels;
+    
+    float frameLength = 1.0;
+    float windowStartInSeconds = 0;
+    for (const std::string &label : embeddingLabels) {
+        
+        // Round to the nearest second
+        int roundedWindowStart = round(windowStartInSeconds);
+        int roundedWindowEnd = round(windowStartInSeconds + frameLength);
+        
+        // If they are equal, don't add the Audacity Label
+        if (roundedWindowStart == roundedWindowEnd) {
+            windowStartInSeconds += frameLength;
+            continue;
+        }
+        
+        AudacityLabel windowedLabel = AudacityLabel(roundedWindowStart, roundedWindowEnd, label);
+
+        audacityLabels.push_back(windowedLabel);
+        
+        windowStartInSeconds += frameLength;
+    }
+
+    audacityLabels = coalesceLabels(audacityLabels);
+    
+    return audacityLabels;
 }
