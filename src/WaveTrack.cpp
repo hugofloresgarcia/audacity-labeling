@@ -561,8 +561,6 @@ void WaveTrack::Trim (double t0, double t1)
 }
 
 
-
-
 WaveTrack::Holder WaveTrack::EmptyCopy(
    const SampleBlockFactoryPtr &pFactory ) const
 {

@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <algorithm>
+#include "portaudio.h"
 #include <tgmath.h>
 #include <string>
 
@@ -118,10 +119,24 @@ size_t IALAudioFrame::sourceLength(WaveTrack &track)
 
 torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 {
-    auto buffer = std::make_unique<SampleBuffer>(desiredLength, format);
+    // auto buffer = std::make_unique<SampleBuffer>(desiredLength, format);
     size_t numChannels = collection.numChannels();
     
     torch::Tensor samples = torch::empty({1, static_cast<long long>(numChannels), static_cast<long long>(desiredLength)});
+
+    // // TEST PLAYBACK
+    // PaStream *stream;
+    // PaError err;
+    // err = Pa_Initialize();
+    // if (err != paNoError) { raise(1); }
+
+    // PaStreamParameters outputParameters;
+    // outputParameters.device = Pa_GetDefaultOutputDevice();
+    // outputParameters.sampleFormat = paFloat32;
+    // outputParameters.channelCount = 1;
+    // outputParameters.hostApiSpecificStreamInfo = NULL;
+    // outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+    // //
     
     collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
@@ -129,59 +144,55 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         double originalSampleRate = channel.GetRate();
         size_t actualLength = sourceLength(channel);
         
-        SampleBuffer channelBuffer = SampleBuffer(desiredLength, format);
+        // SampleBuffer channelBuffer = SampleBuffer(desiredLength, format);
+        AudacityProject *project = channel.GetOwner()->GetOwner();
+        SampleBlockFactoryPtr sbFactory = WaveTrackFactory::Get(*project).GetSampleBlockFactory();
+
+        // copy channel's samples into buffer
+        SampleBuffer buffer(actualLength, originalFormat);
+        // fill up the buffer
+        channel.Get(buffer.ptr(), originalFormat, start, actualLength);
+
+        // make a separate clip where we will do the necessary conversions 
+        WaveClip conversionClip(sbFactory, originalFormat, channel.GetRate(), channel.GetWaveColorIndex());
+
+        // fill the clip with our buffer
+        conversionClip.Append(buffer.ptr(), originalFormat, desiredLength);
+        conversionClip.Flush();
+        // conversionClip.SetSamples(buffer.ptr(), originalFormat, start, actualLength);
+
+        // do the conversions
+        conversionClip.ConvertToSampleFormat(floatSample);
+        conversionClip.Resample(sampleRate);
+        // SampleBuffer buffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
+        conversionClip.GetSamples(buffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
         
-        // Only modify the track if it needs to be changed
-        if (originalFormat != format
-            || originalSampleRate != sampleRate
-            || actualLength != desiredLength)
-        {
-            // Fetch Project Information
-            AudacityProject *project = channel.GetOwner()->GetOwner();
-            SampleBlockFactoryPtr sbFactory = WaveTrackFactory::Get(*project).GetSampleBlockFactory();
-
-            // Create a waveclip that will be used to convert the samples
-            WaveClip conversionClip(sbFactory, originalFormat, channel.GetRate(), channel.GetWaveColorIndex());
-
-            // Copy the samples into a buffer
-            SampleBuffer transferBuffer(actualLength, originalFormat);
-
-            channel.Get(transferBuffer.ptr(), originalFormat, start, actualLength);
-            
-            // Copy into the clip and transform audio
-            conversionClip.Append(transferBuffer.ptr(), originalFormat, desiredLength);
-            
-            // CONVERSIONS: Length, Format, and Sample Rate
-            
-            if (desiredLength > actualLength)
-            {
-                // This is where we could change the behavior of the last sample
-                conversionClip.AppendSilence(desiredLength - actualLength, 0);
-            }
-            
-            if (originalFormat != format)
-            {
-                conversionClip.ConvertToSampleFormat(format);
-            }
-            
-            if (originalSampleRate != sampleRate)
-            {
-                conversionClip.Resample(sampleRate);
-            }
-            
-            // Copy one last time into a buffer.
-            // conversionClip.GetSamples(channelBuffer.ptr(), format, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
-        }
-        else
-        {
-            channel.Get(channelBuffer.ptr(), format, start, desiredLength);
-        }
-        
-        torch::Tensor channelTensor = torch::from_blob(channelBuffer.ptr(),
+        torch::Tensor channelTensor = torch::from_blob(buffer.ptr(),
                                                        desiredLength,
                                                        torch::TensorOptions().dtype(torch::kFloat32));
         
         samples.index_put_({0, torch::indexing::TensorIndex(static_cast<int64_t>(idx)), torch::indexing::Slice()}, channelTensor);
+
+        // // TEST PLAYBACK
+        // err = Pa_OpenStream(&stream, NULL, &outputParameters, sampleRate, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
+        // if (err != paNoError) { exit(1); }
+
+        // if (stream) {
+        //     err = Pa_StartStream( stream );
+        //     if( err != paNoError ) { exit(1); }
+
+        //     err = Pa_WriteStream(stream, buffer.ptr(), conversionClip.GetNumSamples().as_size_t());
+        //     if (err != paNoError) { exit(1); }
+
+        //     printf("Waiting for playback to finish.\n");
+
+        //     while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) { Pa_Sleep(100); }
+        //     if( err < 0 ) { exit(1); }
+
+        //     err = Pa_CloseStream( stream );
+        //     if( err != paNoError ) { exit(1); }
+        // }
+        // //
     });
     
     // Downmix, then shape appropriately for the model.
