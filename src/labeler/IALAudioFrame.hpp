@@ -129,6 +129,7 @@ public:
     void iterateChannels(std::function<void(WaveTrack &channel, size_t idx, bool *stop)> loopBlock);
     bool addChannel(std::weak_ptr<WaveTrack> channel);
     std::vector<IALAudioFrame> audioFrames;
+    std::shared_ptr<LabelTrack> labelTrack;
     
 private:
     std::vector<std::weak_ptr<WaveTrack>> channels;

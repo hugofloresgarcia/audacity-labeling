@@ -170,7 +170,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
             }
             
             // Copy one last time into a buffer.
-            conversionClip.GetSamples(channelBuffer.ptr(), format, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
+            // conversionClip.GetSamples(channelBuffer.ptr(), format, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
         }
         else
         {
