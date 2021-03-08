@@ -31,7 +31,6 @@ AudacityLabel IALAudioFrame::getAudacityLabel(std::string labelstr){
     std::weak_ptr<WaveTrack> weakTrack = collection.getLeaderTrack();
     std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
 
-    //TODO: get a primary channel so you can compute source length
     float sR = float(collection.trackSampleRate());
     float startSample = float(start.as_double());
     float lenSample = float(sourceLength(*strongTrack));
@@ -59,7 +58,6 @@ AudacityLabel IALAudioFrame::label()
     std::vector<std::string> predictions = collection.classifier.predictInstruments(modelInput, 0.3);
 
     cachedLabel = getAudacityLabel(predictions[0]);
-
     return cachedLabel;
 }
 
@@ -97,7 +95,6 @@ bool IALAudioFrame::audioDidChange()
         size_t actualLength = sourceLength(channel);
         
         // Grab first, middle, and last sample from each track
-        
         SampleBuffer startBuffer(1, format);
         channel.Get(startBuffer.ptr(), format, start, 1);
         
@@ -116,10 +113,10 @@ bool IALAudioFrame::audioDidChange()
     
     std::hash<float> float_hasher;
     size_t newHash = float_hasher(sampleTotal);
-    
+
     if (cachedHash != newHash)
     {
-        cachedHash = newHash;
+        cachedHash = size_t(newHash);
         return true;
     }
     
@@ -264,7 +261,6 @@ size_t IALAudioFrameCollection::numChannels()
     return count;
 }
 
-// TODO: this could cause a segfault if not called properly? should pass a weak ptr instead just in case we don't have a leader track yet. 
 std::weak_ptr<WaveTrack> IALAudioFrameCollection::getLeaderTrack()
 {
     return channels[0];

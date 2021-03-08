@@ -114,7 +114,7 @@ void IALLabeler::labelTracks()
             frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
 
             std::vector<AudacityLabel> predictions;
-            for (auto frame : frameCollection.audioFrames){
+            for (auto &frame : frameCollection.audioFrames){
                 AudacityLabel prediction = frame.label();
                 predictions.emplace_back(prediction);
             }
@@ -157,7 +157,7 @@ void IALLabeler::labelTracks()
                 if (!trackInTrackList(tracklist, newTrack)) {
                     tracklist.Add(newTrack);
                 }
-                
+
                 labelFile.Close();
                 wxRemove(labelFileName);
             }
