@@ -41,6 +41,7 @@ IALAudioFrame::IALAudioFrame(IALAudioFrameCollection &collection, const sampleCo
 {
 }
 
+//TODO: handle when locking the track fails. (i.e. track was destroyed)
 AudacityLabel IALAudioFrame::getAudacityLabel(std::string labelstr){
     std::weak_ptr<WaveTrack> weakTrack = collection.getLeaderTrack();
     std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
@@ -408,11 +409,14 @@ void IALAudioFrameCollection::labelAllFrames(const AudacityProject &project){
         predictions.emplace_back(prediction);
     }
 
+    // make sure to call this before coalescing to get accurate results. 
+    std::string trackName = mostCommonLabel(predictions);
+    setTrackTitle(trackName);
+
     predictions = coalesceLabels(predictions);
 
     // TODO: find a better way to create label tracks than this
     if (!predictions.empty()){
-        std::string trackName = predictions[0].label;
         wxString labelFileName = wxFileName(FileNames::DataDir(), trackName + ".txt").GetFullPath();
         wxTextFile labelFile(labelFileName);
         
@@ -443,6 +447,62 @@ void IALAudioFrameCollection::labelAllFrames(const AudacityProject &project){
 
 }
 
+//TODO: handle when locking the track fails. (i.e. track was destroyed)
+void IALAudioFrameCollection::setTrackTitle(const std::string &trackTitle){
+    std::weak_ptr<WaveTrack> weakTrack = getLeaderTrack();
+    std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
+
+    strongTrack->SetName(wxString(trackTitle));
+}
+
+bool compareLabelCounts(std::pair<std::string, int> a, std::pair<std::string, int> b){
+    return a.second < b.second;
+}
+
+std::string IALAudioFrameCollection::mostCommonLabel(const std::vector<AudacityLabel> &labels){
+    // we should get the most common label in a given set of UNCOALESCED predictions
+    // if the most common label is silence, use the second most common label
+    // if there is no other common label, simply return silence
+    // if the labels are empty, return silence
+
+    std::string mostFreqLabel;
+    if (labels.empty())
+    {
+        mostFreqLabel = "silence";
+        return mostFreqLabel;
+    }
+    else
+    {
+        // make a dict with key label and value count
+        std::map<std::string, int> counter;
+
+        for (auto label: labels){
+            // if we haven't seen the label b4, initialize to 0 
+            if (counter.find(label.label) == counter.end()){
+                counter[label.label] = 0;
+            }
+            // increment counter
+            counter[label.label] += 1;
+        }
+
+        // sort map by value by putting it into a vector
+        std::vector<std::pair<std::string, int>> sortedCounter;
+        std::map<std::string, int>::iterator it;
+        for (it=counter.begin(); it!=counter.end(); it++){
+            sortedCounter.push_back(std::make_pair(it->first, it->second));
+        }
+
+        std::sort(sortedCounter.rbegin(), sortedCounter.rend(), compareLabelCounts);
+
+        mostFreqLabel = sortedCounter[0].first;
+
+        // if the most common label is silence, just grab the second most common label
+        if (mostFreqLabel == "silence" && sortedCounter.size() > 1){
+            mostFreqLabel = sortedCounter[1].first;
+        }
+    }
+    return mostFreqLabel;
+}
 std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::vector<AudacityLabel> &labels) {
     std::vector<AudacityLabel> coalescedLabels;
     
@@ -473,33 +533,4 @@ std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::ve
                                             labels[startIdx].label));
     
     return coalescedLabels;
-}
-std::vector<AudacityLabel> IALAudioFrameCollection::createAudacityLabels(const std::vector<std::string> &embeddingLabels) {
-    
-    std::vector<AudacityLabel> audacityLabels;
-    
-    float frameLength = 1.0;
-    float windowStartInSeconds = 0;
-    for (const std::string &label : embeddingLabels) {
-        
-        // Round to the nearest second
-        int roundedWindowStart = round(windowStartInSeconds);
-        int roundedWindowEnd = round(windowStartInSeconds + frameLength);
-        
-        // If they are equal, don't add the Audacity Label
-        if (roundedWindowStart == roundedWindowEnd) {
-            windowStartInSeconds += frameLength;
-            continue;
-        }
-        
-        AudacityLabel windowedLabel = AudacityLabel(roundedWindowStart, roundedWindowEnd, label);
-
-        audacityLabels.push_back(windowedLabel);
-        
-        windowStartInSeconds += frameLength;
-    }
-
-    audacityLabels = coalesceLabels(audacityLabels);
-    
-    return audacityLabels;
 }

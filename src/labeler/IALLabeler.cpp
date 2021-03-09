@@ -103,8 +103,3 @@ void IALLabeler::labelTracks()
         }
     }
 }
-
-void IALLabeler::updateTracks()
-{
-    labelTracks();
-}
