@@ -66,7 +66,6 @@ const IALLabeler &IALLabeler::Get(const AudacityProject &project)
 IALLabeler::IALLabeler(const AudacityProject &project)
     : classifier(kModelPath, kInstrumentListPath), project(project), tracks(std::map<TrackId, IALAudioFrameCollection>())
 {
-    updateTracks();
 }
 
 # pragma mark Private
