@@ -51,7 +51,6 @@ private:
     void updateTracks();
     
     std::map<TrackId, IALAudioFrameCollection> tracks;
-    std::map<TrackId, std::shared_ptr<LabelTrack>> id2labels;
 };
 
 #endif

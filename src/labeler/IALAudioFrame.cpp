@@ -16,9 +16,23 @@
 #include "../WaveTrack.h"
 #include "../Track.h"
 #include "../WaveClip.h"
+#include "../FileNames.h"
 #include "IALModel.hpp"
 #include "IALLabeler.hpp"
 
+bool trackInTrackList(TrackList& tracklist, std::shared_ptr<LabelTrack> track){
+    // Track *leader = *tracklist.FindLeader(track);
+    TrackId id = track->GetId();
+
+    for (Track *other: tracklist){
+        TrackId otherId = other->GetId();
+
+        if (otherId == id){
+            return true;
+        }
+    }
+    return false;
+}
 
 // #pragma mark AudioFrame - Public
 
@@ -123,14 +137,12 @@ bool IALAudioFrame::audioDidChange()
     return false;
 }
 
-
 size_t IALAudioFrame::sourceLength(WaveTrack &track)
 {
     // Should be length for all frames excluding the last.
     sampleCount lastSample = track.TimeToLongSamples(track.GetEndTime());
     return std::min(start.as_size_t() + desiredLength, lastSample.as_size_t()) - start.as_size_t();
 }
-
 
 //TODO: test with  non-float input audio
 torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
@@ -210,20 +222,17 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
     return collection.classifier.padAndReshape(monoAudio);
 }
 
-
 // #pragma mark Collection - Public
 
-
 // constructor. 
+// each audacity track should have a framecollection, which should have a label track for itself.
 IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel)
     : classifier(classifier)
 {
     if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
     {
         leaderTrackId = strongChannel->GetId();
-        std::shared_ptr<TrackList> tracklist = strongChannel->GetOwner();
-        // TrackIter<Track> iter = tracklist->FindLeader(strongChannel.get());
-        // Track* primaryChannel = *(tracklist->FindLeader(strongChannel.get()));
+        labelTrack = std::make_shared<LabelTrack>();
     }
 }
 
@@ -389,9 +398,55 @@ void IALAudioFrameCollection::updateCollectionLength()
     }
 }
 
+void IALAudioFrameCollection::labelAllFrames(const AudacityProject &project){
+    // grab the tracklist
+    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+
+    std::vector<AudacityLabel> predictions;
+    for (auto &frame : audioFrames){
+        AudacityLabel prediction = frame.label();
+        predictions.emplace_back(prediction);
+    }
+
+    predictions = coalesceLabels(predictions);
+
+    // TODO: find a better way to create label tracks than this
+    if (!predictions.empty()){
+        std::string trackName = predictions[0].label;
+        wxString labelFileName = wxFileName(FileNames::DataDir(), trackName + ".txt").GetFullPath();
+        wxTextFile labelFile(labelFileName);
+        
+        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
+        if (labelFile.Exists()) {
+            labelFile.Clear();
+        }
+        else {
+            labelFile.Create();
+        }
+        labelFile.Open();
+        
+        // Write each timestamp to file
+        for (auto &label : predictions) {
+            labelFile.AddLine(wxString(label.toStdString()));
+        }
+
+        labelTrack->SetName(wxString(trackName));
+        labelTrack->Import(labelFile);
+
+        if (!trackInTrackList(tracklist, labelTrack)) {
+            tracklist.Add(labelTrack);
+        }
+
+        labelFile.Close();
+        wxRemove(labelFileName);
+    }
+
+}
+
 std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::vector<AudacityLabel> &labels) {
     std::vector<AudacityLabel> coalescedLabels;
     
+    // if labels are empty, don't return 
     if (labels.size() == 0) {
         return coalescedLabels;
     }
@@ -401,8 +456,11 @@ std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::ve
         
         // Iterate over a range until a label differs from the previous label AND
         // previous label end time is same as the current label's start time
+
+        // if the current label isn't the same as our base label, 
+        // OR the previous label does not at the same time as the current label starts
         if (labels[i].label != labels[startIdx].label
-            && labels[i - 1].end != labels[i].start) {
+            || labels[i - 1].end != labels[i].start) {
             coalescedLabels.push_back(AudacityLabel(labels[startIdx].start,
                                                     labels[i - 1].end,
                                                     labels[startIdx].label));

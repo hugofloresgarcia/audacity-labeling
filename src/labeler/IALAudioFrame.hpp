@@ -152,6 +152,7 @@ public:
 
     std::weak_ptr<WaveTrack> getLeaderTrack();
 
+    void labelAllFrames(const AudacityProject& project);
     std::vector<AudacityLabel> coalesceLabels(const std::vector<AudacityLabel> &labels);
     std::vector<AudacityLabel> createAudacityLabels(const std::vector<std::string> &embeddingLabels);
 private:
