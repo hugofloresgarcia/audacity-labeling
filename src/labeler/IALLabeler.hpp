@@ -48,8 +48,6 @@ public:
 private:
     const AudacityProject &project;
     
-    void updateTracks();
-    
     std::map<TrackId, IALAudioFrameCollection> tracks;
 };
 
