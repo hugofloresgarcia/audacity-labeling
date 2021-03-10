@@ -68,37 +68,51 @@ IALLabeler::IALLabeler(const AudacityProject &project)
 {
 }
 
-# pragma mark Private
+// # pragma mark Private
 
 void IALLabeler::labelTracks()
+{   
+    try{
+        TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+        const auto& playableTracks = tracklist.Any<PlayableTrack>();
+
+        for (Track *track : playableTracks ){ 
+            labelTrack(track);
+        }
+    }
+    catch (...) {
+        std::cout << "an unknown error occured while labeling" << "\n";
+    }
+    
+}
+
+void IALLabeler::labelTrack(Track* track)
 {   
     TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
     const auto& playableTracks = tracklist.Any<PlayableTrack>();
 
-    for (Track *track : playableTracks ){ 
-        if (dynamic_cast<WaveTrack *>(track) != nullptr)
+    if (dynamic_cast<WaveTrack *>(track) != nullptr)
+    {
+        std::shared_ptr<WaveTrack> waveTrack = std::dynamic_pointer_cast<WaveTrack>(track->SharedPointer());
+
+        Track *leader = *tracklist.FindLeader(track);
+        TrackId leaderID = leader->GetId();
+        std::shared_ptr<WaveTrack> leaderTrack = std::dynamic_pointer_cast<WaveTrack>(leader->SharedPointer());
+        
+        // find out if we have labeled this track before
+        // if we haven't, create a new entry 
+        auto pair = tracks.find(leaderID);
+        if (pair == tracks.end())
         {
-            std::shared_ptr<WaveTrack> waveTrack = std::dynamic_pointer_cast<WaveTrack>(track->SharedPointer());
-
-            Track *leader = *tracklist.FindLeader(track);
-            TrackId leaderID = leader->GetId();
-            std::shared_ptr<WaveTrack> leaderTrack = std::dynamic_pointer_cast<WaveTrack>(leader->SharedPointer());
-            
-            // find out if we have labeled this track before
-            // if we haven't, create a new entry 
-            auto pair = tracks.find(leaderID);
-            if (pair == tracks.end())
-            {
-                tracks.insert(std::make_pair(leaderID, IALAudioFrameCollection(classifier, leaderTrack)));
-                pair = tracks.find(leaderID);
-            }
-
-            // grab the frame collection, and add a new channel to it if necessary
-            IALAudioFrameCollection& frameCollection = tracks.find(leaderID)->second;
-            frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
-
-            // update the labels
-            frameCollection.labelAllFrames(project);
+            tracks.insert(std::make_pair(leaderID, IALAudioFrameCollection(classifier, leaderTrack)));
+            pair = tracks.find(leaderID);
         }
+
+        // grab the frame collection, and add a new channel to it if necessary
+        IALAudioFrameCollection& frameCollection = tracks.find(leaderID)->second;
+        frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
+
+        // update the labels
+        frameCollection.labelAllFrames(project);
     }
 }

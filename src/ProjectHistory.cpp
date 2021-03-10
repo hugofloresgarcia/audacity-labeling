@@ -109,11 +109,11 @@ void ProjectHistory::PushState(const TranslatableString &desc,
    auto &undoManager = UndoManager::Get( project );
    auto &tags = Tags::Get( project );
    // IAL Labeler
-   auto &labeler = IALLabeler::Get( project );
+   // auto &labeler = IALLabeler::Get( project );
    undoManager.PushState(
       &tracks, viewInfo.selectedRegion, tags.shared_from_this(),
       desc, shortDesc, flags);
-   labeler.labelTracks();
+   // labeler.labelTracks();
    mDirty = true;
 }
 

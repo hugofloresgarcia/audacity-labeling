@@ -29,7 +29,7 @@
 #include "../widgets/FileHistory.h"
 #include "../widgets/wxPanelWrapper.h"
 
-// Added for the TrackLabeler
+// IAL: Added for the TrackLabeler
 #include "../labeler/IALLabeler.hpp"
 
 #ifdef USE_MIDI

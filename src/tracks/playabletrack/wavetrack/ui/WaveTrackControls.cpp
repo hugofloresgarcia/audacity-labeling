@@ -42,6 +42,9 @@ Paul Licameli split from TrackPanel.cpp
 #include <wx/frame.h>
 #include <wx/sizer.h>
 
+// IAL: Added for the TrackLabeler
+#include "labeler/IALLabeler.hpp"
+
 WaveTrackControls::~WaveTrackControls()
 {
 }
@@ -125,6 +128,9 @@ enum {
    OnSwapChannelsID,
    OnSplitStereoID,
    OnSplitStereoMonoID,
+
+   //IAL: Labeler IDs
+   IALLabelerID,
 
    ChannelMenuID,
 
@@ -514,6 +520,9 @@ struct WaveTrackMenuTable
 
    DECLARE_POPUP_MENU(WaveTrackMenuTable);
 
+   // IAL Labeler
+   void OnIALLabeler(wxCommandEvent & event);
+
    void OnMultiView(wxCommandEvent & event);
    void OnSetDisplay(wxCommandEvent & event);
 
@@ -637,7 +646,14 @@ BEGIN_POPUP_MENU(WaveTrackMenuTable)
       BeginSection( "Extra" );
       EndSection();
    EndSection();
-
+   // IAL: Interactive Audio Lab Utils
+   BeginSection( "IALLabeler" );
+      AppendItem("Label Track", IALLabelerID, XXO("&Label Track"),
+        POPUP_MENU_FN( OnIALLabeler ),
+        []( PopupMenuHandler &handler, wxMenu &menu, int id ){
+           menu.Enable( id, true );
+        });
+   EndSection();
    BeginSection( "Channels" );
    // If these are enabled again, choose a hot key for Mono that does not conflict
    // with Multi View
@@ -717,6 +733,27 @@ BEGIN_POPUP_MENU(WaveTrackMenuTable)
    EndSection();
 END_POPUP_MENU()
 
+// IAL Labeler
+void WaveTrackMenuTable::OnIALLabeler(wxCommandEvent & event)
+{
+   WaveTrack *const pTrack = static_cast<WaveTrack*>(mpData->pTrack);
+   AudacityProject *const project = &mpData->project;
+   ProjectHistory::Get( *project ).PushState(
+      XO("Split Stereo to Mono '%s'").Format( pTrack->GetName() ),
+      XO("Split to Mono"));
+
+   using namespace RefreshCode;
+   mpData->result = RefreshAll | FixScrollbars;
+
+   IALLabeler::Get(mpData->project).labelTrack(pTrack);
+
+   TranslatableString longDesc = XO("Labeled '%s' Track");
+   TranslatableString shortDesc = XO("Label '%s' Track");
+
+   longDesc.Format(pTrack->GetName());
+
+   ProjectHistory::Get( mpData->project ).PushState(longDesc, shortDesc);
+}
 
 void WaveTrackMenuTable::OnMultiView(wxCommandEvent & event)
 {

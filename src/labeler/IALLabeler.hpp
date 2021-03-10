@@ -43,6 +43,7 @@ public:
     IALLabeler(IALLabeler &&that) = delete;
     IALLabeler& operator= (IALLabeler&&) = delete;
     
+    void labelTrack(Track* track);
     void labelTracks();
     
 private:

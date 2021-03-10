@@ -46,13 +46,19 @@ AudacityLabel IALAudioFrame::getAudacityLabel(std::string labelstr){
     std::weak_ptr<WaveTrack> weakTrack = collection.getLeaderTrack();
     std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
 
-    float sR = float(collection.trackSampleRate());
-    float startSample = float(start.as_double());
-    float lenSample = float(sourceLength(*strongTrack));
-    float startTime = startSample / sR;
-    float endTime = (startSample + lenSample)/sR;
+    if (std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock())
+    {
+        float sR = float(collection.trackSampleRate());
+        float startSample = float(start.as_double());
+        float lenSample = float(sourceLength(*strongTrack));
+        float startTime = startSample / sR;
+        float endTime = (startSample + lenSample)/sR;
 
-    return AudacityLabel(startTime, endTime, labelstr);
+        return AudacityLabel(startTime, endTime, labelstr);
+    } else{
+        return AudacityLabel(0, 0, "error");
+    }
+    
 }
 
 // label the current audio frame.
@@ -452,7 +458,11 @@ void IALAudioFrameCollection::setTrackTitle(const std::string &trackTitle){
     std::weak_ptr<WaveTrack> weakTrack = getLeaderTrack();
     std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock();
 
-    strongTrack->SetName(wxString(trackTitle));
+    if (std::shared_ptr<WaveTrack> strongTrack = weakTrack.lock())
+    {
+        strongTrack->SetName(wxString(trackTitle));
+    }
+ 
 }
 
 bool compareLabelCounts(std::pair<std::string, int> a, std::pair<std::string, int> b){
