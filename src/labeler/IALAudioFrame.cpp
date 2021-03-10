@@ -167,19 +167,6 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
     
     std::vector<torch::Tensor> channels;
 
-    // // TEST PLAYBACK
-    // PaStream *stream;
-    // PaError err;
-    // err = Pa_Initialize();
-    // if (err != paNoError) { raise(1); }
-    // PaStreamParameters outputParameters;
-    // outputParameters.device = Pa_GetDefaultOutputDevice();
-    // outputParameters.sampleFormat = paFloat32;
-    // outputParameters.channelCount = 1;
-    // outputParameters.hostApiSpecificStreamInfo = NULL;
-    // outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
-    // //
-
     collection.iterateChannels([&](WaveTrack &channel, size_t idx, bool *stop)
     {
         sampleFormat originalFormat = channel.GetSampleFormat();
@@ -206,10 +193,13 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         // do the conversions
         conversionClip.ConvertToSampleFormat(floatSample);
         conversionClip.Resample(sampleRate);
+
+        // copy channel's samples into buffer
+        SampleBuffer outBuffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
         // SampleBuffer buffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
-        conversionClip.GetSamples(buffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
+        conversionClip.GetSamples(outBuffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
         
-        torch::Tensor bufTensor = torch::from_blob(buffer.ptr(),
+        torch::Tensor bufTensor = torch::from_blob(outBuffer.ptr(),
                                                        desiredLength,
                                                        torch::TensorOptions().dtype(torch::kFloat32));
 
@@ -219,21 +209,6 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         
         channels.emplace_back(channelTensor);
 
-        // // TEST PLAYBACK
-        // err = Pa_OpenStream(&stream, NULL, &outputParameters, sampleRate, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
-        // if (err != paNoError) { exit(1); }
-        // if (stream) {
-        //     err = Pa_StartStream( stream );
-        //     if( err != paNoError ) { exit(1); }
-        //     err = Pa_WriteStream(stream, buffer.ptr(), conversionClip.GetNumSamples().as_size_t());
-        //     if (err != paNoError) { exit(1); }
-        //     printf("Waiting for playback to finish.\n");
-        //     while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) { Pa_Sleep(100); }
-        //     if( err < 0 ) { exit(1); }
-        //     err = Pa_CloseStream( stream );
-        //     if( err != paNoError ) { exit(1); }
-        // }
-        // //
     });
     
     torch::Tensor samples = torch::stack(torch::TensorList(channels), 0).unsqueeze(0);

@@ -1327,6 +1327,7 @@ target_include_directories( ${TARGET} PRIVATE ${INCLUDES})
 target_link_options( ${TARGET} PRIVATE ${LDFLAGS} )
 
 # IAL: link torch 
+# TODO: I added a static build here because libtorch does something weird with libc10.dylib . we should remove it
 target_link_libraries( ${TARGET} PRIVATE ${LIBRARIES} "${TORCH_LIBRARIES}")
 
 # If was have cmake 3.16 or higher, we can use precompiled headers, but

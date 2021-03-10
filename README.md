@@ -65,3 +65,10 @@ cd .. # cd back to project root
 cp ./ial-weights/medleydb/ial-model.pt build/bin/Debug/Audacity.app/Contents/Resources/ial-model.pt
 cp ./ial-weights/medleydb/ial-instruments.txt build/bin/Debug/Audacity.app/Contents/Resources/ial-instruments.txt
 ```
+
+libraries that are missing after deployment
+```bash
+brew install libtorch
+brew install libsoxr
+brew install libmad
+```
