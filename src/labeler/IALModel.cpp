@@ -121,7 +121,7 @@ torch::Tensor IALModel::modelForward(const torch::Tensor inputAudio, bool addSof
     std::vector<torch::jit::IValue> inputs;
     inputs.push_back(inputAudio);
 
-    // auto sz = inputAudio.sizes().vec();
+    auto sz = inputAudio.sizes().vec();
     // for (int i = 0; i < sz[3]; i++){
     //     std::cout<<inputAudio[0][0][0][i]<<std::endl;
     // }

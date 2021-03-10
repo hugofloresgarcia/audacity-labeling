@@ -165,7 +165,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
     // auto buffer = std::make_unique<SampleBuffer>(desiredLength, format);
     size_t numChannels = collection.numChannels();
     
-    torch::Tensor samples = torch::empty({1, static_cast<long long>(numChannels), static_cast<long long>(desiredLength)});
+    std::vector<torch::Tensor> channels;
 
     // // TEST PLAYBACK
     // PaStream *stream;
@@ -217,7 +217,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 
         buffer.Free();
         
-        samples.index_put_({0, torch::indexing::TensorIndex(static_cast<int64_t>(idx)), torch::indexing::Slice()}, channelTensor);
+        channels.emplace_back(channelTensor);
 
         // // TEST PLAYBACK
         // err = Pa_OpenStream(&stream, NULL, &outputParameters, sampleRate, paFramesPerBufferUnspecified, paNoFlag, NULL, NULL);
@@ -236,6 +236,8 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         // //
     });
     
+    torch::Tensor samples = torch::stack(torch::TensorList(channels), 0).unsqueeze(0);
+
     // Downmix, then shape appropriately for the model.
     torch::Tensor monoAudio = collection.classifier.downmix(samples);
     return collection.classifier.padAndReshape(monoAudio);
@@ -533,7 +535,7 @@ std::vector<AudacityLabel> IALAudioFrameCollection::labelAudioSubsequence(std::v
 
         //NOTE: temporary fix
         while (audioVector.size() < 10){
-            audioVector.emplace_back(torch::zeros({1, 1, 48000}));
+            audioVector.emplace_back(torch::zeros({1, 1, 48000}, torch::kFloat32));
         }
 
         // now we have a tensor with shape (batch, 1, chunkLen)
@@ -564,10 +566,22 @@ void IALAudioFrameCollection::labelAllFrames(const AudacityProject& project)
     std::vector<IALAudioFrame> frameSequence;
     for (auto &frame : audioFrames)
     {   
+        // NOTE: THIS IS A TEMPORARY FIX (the if statement below)
+        // right now, the lstm model is traced, meaning that it will always need
+        // a fixed sequence length. If the model is scripted instead, this will not be necessary. 
+        if (frameSequence.size() == 10) 
+        {
+            // label whatever we have right now, append it to the big list of predictions
+            std::vector<AudacityLabel> labelSubsequence = labelAudioSubsequence(frameSequence);
+            predictions.insert(predictions.end(), labelSubsequence.begin(), labelSubsequence.end());
+            
+            // start from scratch for the next sequence!
+            frameSequence.clear();
+        }
         // if the current frame is silent, let's label what we have so far
         if (frame.audioIsSilent())
         {   
-            if (!frameSequence.empty() || frameSequence.size() > 9){ //NOTE: temporary fix
+            if (!frameSequence.empty()){ //NOTE: temporary fix
                 // label whatever we have right now, append it to the big list of predictions
                 std::vector<AudacityLabel> labelSubsequence = labelAudioSubsequence(frameSequence);
                 predictions.insert(predictions.end(), labelSubsequence.begin(), labelSubsequence.end());
