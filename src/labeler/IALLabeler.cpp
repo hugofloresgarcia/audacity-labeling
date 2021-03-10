@@ -72,17 +72,17 @@ IALLabeler::IALLabeler(const AudacityProject &project)
 
 void IALLabeler::labelTracks()
 {   
-    try{
+    // try{
         TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
         const auto& playableTracks = tracklist.Any<PlayableTrack>();
 
         for (Track *track : playableTracks ){ 
             labelTrack(track);
         }
-    }
-    catch (...) {
-        std::cout << "an unknown error occured while labeling" << "\n";
-    }
+    // }
+    // catch (...) {
+    //     std::cout << "an unknown error occured while labeling" << "\n";
+    // }
     
 }
 

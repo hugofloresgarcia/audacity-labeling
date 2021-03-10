@@ -76,9 +76,17 @@ AudacityLabel IALAudioFrame::label()
     }
     
     torch::Tensor modelInput = downmixedAudio();
-    std::vector<std::string> predictions = collection.classifier.predictInstruments(modelInput, 0.3);
+    std::vector<std::string> predictions = collection.classifier.predictFromAudioFrame(modelInput, 0.3);
 
     cachedLabel = getAudacityLabel(predictions[0]);
+    return cachedLabel;
+}
+
+
+// label the current audio frame.
+AudacityLabel IALAudioFrame::setLabel(const std::string label)
+{
+    cachedLabel = getAudacityLabel(label);
     return cachedLabel;
 }
 
@@ -201,9 +209,13 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
         // SampleBuffer buffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
         conversionClip.GetSamples(buffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
         
-        torch::Tensor channelTensor = torch::from_blob(buffer.ptr(),
+        torch::Tensor bufTensor = torch::from_blob(buffer.ptr(),
                                                        desiredLength,
                                                        torch::TensorOptions().dtype(torch::kFloat32));
+
+        torch::Tensor channelTensor = bufTensor.clone();
+
+        buffer.Free();
         
         samples.index_put_({0, torch::indexing::TensorIndex(static_cast<int64_t>(idx)), torch::indexing::Slice()}, channelTensor);
 
@@ -405,54 +417,6 @@ void IALAudioFrameCollection::updateCollectionLength()
     }
 }
 
-void IALAudioFrameCollection::labelAllFrames(const AudacityProject &project){
-    // grab the tracklist
-    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
-
-    std::vector<AudacityLabel> predictions;
-    for (auto &frame : audioFrames){
-        AudacityLabel prediction = frame.label();
-        predictions.emplace_back(prediction);
-    }
-
-    // make sure to call this before coalescing to get accurate results. 
-    std::string trackName = mostCommonLabel(predictions);
-    setTrackTitle(trackName);
-
-    predictions = coalesceLabels(predictions);
-
-    // TODO: find a better way to create label tracks than this
-    if (!predictions.empty()){
-        wxString labelFileName = wxFileName(FileNames::DataDir(), trackName + ".txt").GetFullPath();
-        wxTextFile labelFile(labelFileName);
-        
-        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
-        if (labelFile.Exists()) {
-            labelFile.Clear();
-        }
-        else {
-            labelFile.Create();
-        }
-        labelFile.Open();
-        
-        // Write each timestamp to file
-        for (auto &label : predictions) {
-            labelFile.AddLine(wxString(label.toStdString()));
-        }
-
-        labelTrack->SetName(wxString(trackName));
-        labelTrack->Import(labelFile);
-
-        if (!trackInTrackList(tracklist, labelTrack)) {
-            tracklist.Add(labelTrack);
-        }
-
-        labelFile.Close();
-        wxRemove(labelFileName);
-    }
-
-}
-
 //TODO: handle when locking the track fails. (i.e. track was destroyed)
 void IALAudioFrameCollection::setTrackTitle(const std::string &trackTitle){
     std::weak_ptr<WaveTrack> weakTrack = getLeaderTrack();
@@ -513,6 +477,7 @@ std::string IALAudioFrameCollection::mostCommonLabel(const std::vector<AudacityL
     }
     return mostFreqLabel;
 }
+
 std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::vector<AudacityLabel> &labels) {
     std::vector<AudacityLabel> coalescedLabels;
     
@@ -543,4 +508,137 @@ std::vector<AudacityLabel> IALAudioFrameCollection::coalesceLabels(const std::ve
                                             labels[startIdx].label));
     
     return coalescedLabels;
+}
+
+std::vector<AudacityLabel> IALAudioFrameCollection::labelAudioSubsequence(std::vector<IALAudioFrame> &frameSequence)
+{
+    // if none of the frames in this sequence have changed, don't redo the computation
+    bool frameSequenceHasChanged = false;
+    for (auto &frame : frameSequence)
+    {
+        if (frame.audioDidChange()){
+            frameSequenceHasChanged = true;
+        }
+    }
+
+    if (frameSequenceHasChanged)
+    {
+        std::vector<torch::Tensor> audioVector;
+
+        // go through the entire sequence of labels and gather downmixedAudio()
+        for (auto &frame : frameSequence)
+        {
+            audioVector.emplace_back(frame.downmixedAudio());
+        }
+
+        //NOTE: temporary fix
+        while (audioVector.size() < 10){
+            audioVector.emplace_back(torch::zeros({1, 1, 48000}));
+        }
+
+        // now we have a tensor with shape (batch, 1, chunkLen)
+        // see if we can call torch::stack() and get shape (seq, batch, 1, chunkLen)
+        torch::TensorList preStack = torch::TensorList(audioVector);
+        torch::Tensor audioStack = torch::stack(preStack, /*dim = */ 0);
+
+        // now, we can feed the sequence to the model 
+        std::vector<std::string> predictions = classifier.predictFromAudioSequence(audioStack, 0.3);
+
+        // update the labels for each AudioFrame
+        for (size_t i = 0; i < frameSequence.size(); i++)
+        {
+            auto &frame = frameSequence[i];
+            frame.setLabel(predictions[i]);
+        }
+    }
+
+    return gatherAudacityLabels(frameSequence);
+}
+
+void IALAudioFrameCollection::labelAllFrames(const AudacityProject& project)
+{
+    // grab the tracklist
+    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+
+    std::vector<AudacityLabel> predictions;
+    std::vector<IALAudioFrame> frameSequence;
+    for (auto &frame : audioFrames)
+    {   
+        // if the current frame is silent, let's label what we have so far
+        if (frame.audioIsSilent())
+        {   
+            if (!frameSequence.empty() || frameSequence.size() > 9){ //NOTE: temporary fix
+                // label whatever we have right now, append it to the big list of predictions
+                std::vector<AudacityLabel> labelSubsequence = labelAudioSubsequence(frameSequence);
+                predictions.insert(predictions.end(), labelSubsequence.begin(), labelSubsequence.end());
+                
+                // start from scratch for the next sequence!
+                frameSequence.clear();
+            }
+            
+        }
+        else 
+        {   
+            // if the current frame is not  silent, then append it to our working sequence
+            frameSequence.emplace_back(frame); 
+        }
+    }
+
+    // make final calls if needed
+    if (!frameSequence.empty()){
+        // label whatever we have right now, append it to the big list of predictions
+        std::vector<AudacityLabel> labelSubsequence = labelAudioSubsequence(frameSequence);
+        predictions.insert(predictions.end(), labelSubsequence.begin(), labelSubsequence.end());
+        
+        // start from scratch for the next sequence!
+        frameSequence.clear();
+    }
+
+    // make sure to call this before coalescing to get accurate results. 
+    std::string trackName = mostCommonLabel(predictions);
+    setTrackTitle(trackName);
+
+    predictions = coalesceLabels(predictions);
+
+    // TODO: find a better way to create label tracks than this
+    if (!predictions.empty()){
+        wxString labelFileName = wxFileName(FileNames::DataDir(), trackName + ".txt").GetFullPath();
+        wxTextFile labelFile(labelFileName);
+        
+        // In the event of a crash, the file might still be there. If so, clear it out and get it ready for reuse. Otherwise, create a new one.
+        if (labelFile.Exists()) {
+            labelFile.Clear();
+        }
+        else {
+            labelFile.Create();
+        }
+        labelFile.Open();
+        
+        // Write each timestamp to file
+        for (auto &label : predictions) {
+            labelFile.AddLine(wxString(label.toStdString()));
+        }
+
+        labelTrack->SetName(wxString(trackName));
+        labelTrack->Import(labelFile);
+
+        if (!trackInTrackList(tracklist, labelTrack)) {
+            tracklist.Add(labelTrack);
+        }
+
+        labelFile.Close();
+        wxRemove(labelFileName);
+    }
+
+
+}
+
+std::vector<AudacityLabel> IALAudioFrameCollection::gatherAudacityLabels(std::vector<IALAudioFrame> &frameSequence)
+{
+    std::vector<AudacityLabel> labels;
+    for (auto &frame : frameSequence)
+    {
+        labels.emplace_back(frame.getLabel());
+    }
+    return labels;
 }

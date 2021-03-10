@@ -10,6 +10,8 @@
 IALModel::IALModel(const std::string &modelPath, const std::string &instrumentListPath){
     jitModel = loadModel(modelPath);
     instruments = loadInstrumentList(instrumentListPath);
+    // torch::Tensor testAudio = torch::randn({10, 1, 1, 48000});
+    // modelTest(testAudio);
 }
 
 IALModel::IALModel(){
@@ -115,12 +117,19 @@ this should be fixed on the python side though, to keep this class architecture 
 @returns:
     torch::Tensor probits: per-class probabilities with shape (batch, n_classes)
 */
-torch::Tensor IALModel::predictClassProbabilities(const torch::Tensor audioBatch){
+torch::Tensor IALModel::modelForward(const torch::Tensor inputAudio, bool addSoftmax = true){
     std::vector<torch::jit::IValue> inputs;
-    inputs.push_back(audioBatch);
+    inputs.push_back(inputAudio);
+
+    // auto sz = inputAudio.sizes().vec();
+    // for (int i = 0; i < sz[3]; i++){
+    //     std::cout<<inputAudio[0][0][0][i]<<std::endl;
+    // }
     
     // get class probabilities
     auto probits = jitModel.forward({inputs}).toTensor();
+    // adding a softmax here
+    probits = torch::softmax(probits, -1);
     std::cout << probits << '\n';
     return probits;
 }
@@ -133,10 +142,34 @@ torch::Tensor IALModel::predictClassProbabilities(const torch::Tensor audioBatch
 @returns:  
     std::vector<std::string> predictions: list of class predictions for every instance in the batch
 */
-std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioBatch, float confidenceThreshold = 0.3){
-    auto probits = predictClassProbabilities(audioBatch);
+std::vector<std::string> IALModel::predictFromAudioFrame(const torch::Tensor audioBatch, float confidenceThreshold = 0.3){
+    auto probits = modelForward(audioBatch);
     auto [confidences, indices] = probits.max(1, false);
 
+    std::vector<std::string> predictions = constructLabelsFromProbits(confidences, indices, confidenceThreshold);
+    return predictions;
+}
+
+std::vector<std::string> IALModel::predictFromAudioSequence(const torch::Tensor audioSequence, float confidenceThreshold = 0.3)
+{
+    // probits should be a tensor size (seq, batch, probit)
+    auto probits = modelForward(audioSequence);
+
+    // ASSUME batch size is 1 
+    assert(probits.sizes()[1] == 1);
+    auto [confidences, indices] = probits.max(-1, false);
+
+    confidences = confidences.squeeze(-1);
+    indices = indices.squeeze(-1);
+
+    std::vector<std::string>predictions = constructLabelsFromProbits(confidences, indices, confidenceThreshold);
+
+    return predictions;
+}
+
+std::vector<std::string> IALModel::constructLabelsFromProbits(const torch::Tensor confidences, const torch::Tensor indices, 
+                                                            float confidenceThreshold)
+{
     std::vector<std::string> predictions;
     // iterate through confs and idxs
     for (int i = 0; i < confidences.sizes()[0]; ++i){
@@ -159,13 +192,12 @@ std::vector<std::string> IALModel::predictInstruments(const torch::Tensor audioB
 
 // this is not actually a proper test and will be deleted
 void IALModel::modelTest(torch::Tensor inputAudio){
-
     try{
         std::cout << " downmixing audio" << "\n";
-        inputAudio = downmix(inputAudio);
+        // inputAudio = downmix(inputAudio);
 
         std::cout << "doing predictions:" << "\n";
-        std::vector<std::string> predictions = predictInstruments(inputAudio);
+        std::vector<std::string> predictions = predictFromAudioFrame(inputAudio);
         
         // log labels
         for (const auto &e : predictions) std::cout << e << "\n";

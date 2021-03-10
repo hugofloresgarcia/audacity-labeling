@@ -75,31 +75,7 @@ public:
      @returns an instance of an IALAudioFrame
      */
     IALAudioFrame(IALAudioFrameCollection &collection, const sampleCount start, const size_t desiredLength);
-    
-private:
-    /**
-     @brief The collection instance that this frame belongs to
-     */
-    IALAudioFrameCollection &collection;
-    
-    /**
-     @brief The last computed hash of the audio frame, stored as a canary to check for audio changes
-     */
-    size_t cachedHash;
-    
-    /**
-     @brief The last computed label of the audio frame, stored in case the label is requested before the audio changes.
-     */
-    AudacityLabel cachedLabel;
-    
-    /**
-     @brief The length of the frame within the context of the track. Either desiredLength or the remainder of the track, whichever is shorter.
-     */
-    size_t sourceLength(WaveTrack &track);
 
-    // get an audacitylabel with start time, end time and a label string, given the label
-    AudacityLabel getAudacityLabel(std::string label);
-    
     /**
      @brief Detects whether the source audio in this frame has changed from the last time it was checked.
      be detected, then the rest of the frame does not need to be loaded or passed into a model.
@@ -127,6 +103,35 @@ private:
      before copying to the buffer.
      */
     torch::Tensor downmixedAudio(sampleFormat format=floatSample, int sampleRate=48000);
+
+    AudacityLabel setLabel(const std::string label);
+    AudacityLabel getLabel(){return cachedLabel;};
+    
+private:
+    /**
+     @brief The collection instance that this frame belongs to
+     */
+    IALAudioFrameCollection &collection;
+    
+    /**
+     @brief The last computed hash of the audio frame, stored as a canary to check for audio changes
+     */
+    size_t cachedHash;
+    
+    /**
+     @brief The last computed label of the audio frame, stored in case the label is requested before the audio changes.
+     */
+    AudacityLabel cachedLabel;
+    
+    /**
+     @brief The length of the frame within the context of the track. Either desiredLength or the remainder of the track, whichever is shorter.
+     */
+    size_t sourceLength(WaveTrack &track);
+
+    // get an audacitylabel with start time, end time and a label string, given the label
+    AudacityLabel getAudacityLabel(std::string label);
+    
+    
 };
 
 
@@ -160,6 +165,10 @@ public:
 private:
     std::vector<std::weak_ptr<WaveTrack>> channels;
     TrackId leaderTrackId;
+
+    std::vector<AudacityLabel> labelAudioSubsequence(std::vector<IALAudioFrame> &frameSequence);
+    std::vector<AudacityLabel> gatherAudacityLabels(std::vector<IALAudioFrame> &frameSequence);
+    void labelAudioSequence(); 
 
     bool containsChannel(std::weak_ptr<WaveTrack> channel);
     void handleDeletedChannel(size_t deletedChannelIdx);

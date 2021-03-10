@@ -26,8 +26,13 @@ class IALModel {
         torch::Tensor downmix(const torch::Tensor audioBatch);
         torch::Tensor padAndReshape(const torch::Tensor audio);
 
-        torch::Tensor predictClassProbabilities(const torch::Tensor audioBatch);
-        std::vector<std::string>  predictInstruments(const torch::Tensor audioBatch, float confidenceThreshold);
+        torch::Tensor modelForward(const torch::Tensor inputAudio, bool addSoftmax);
+        std::vector<std::string> predictFromAudioFrame(const torch::Tensor audioBatch, float confidenceThreshold);
+        std::vector<std::string> predictFromAudioSequence(const torch::Tensor audioSequence, float confidenceThreshold);
+        std::vector<std::string> constructLabelsFromProbits(const torch::Tensor confidences, const torch::Tensor indices, 
+                                                            float confidenceThreshold);
+
+        
 
         void modelTest(torch::Tensor inputAudio);
 };
