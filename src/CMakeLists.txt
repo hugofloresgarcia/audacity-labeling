@@ -330,8 +330,10 @@ list( APPEND SOURCES
 
       # IAL Labeler
       
-      labeler/IALModel.hpp
-      labeler/IALModel.cpp
+      labeler/DeepModel.h
+      labeler/DeepModel.cpp
+      labeler/ClassificationModel.h
+      labeler/ClassificationModel.cpp
       labeler/IALLabeler.cpp
       labeler/IALLabeler.hpp
       labeler/IALAudioFrame.cpp

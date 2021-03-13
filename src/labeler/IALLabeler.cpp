@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "IALLabeler.hpp"
+#include "ProjectHistory.h"
 
 #include <wx/textfile.h>
 
@@ -63,7 +64,7 @@ const IALLabeler &IALLabeler::Get(const AudacityProject &project)
 
 #pragma mark Initializer
 
-IALLabeler::IALLabeler(const AudacityProject &project)
+IALLabeler::IALLabeler(AudacityProject &project)
     : classifier(kModelPath, kInstrumentListPath), project(project), tracks(std::map<TrackId, IALAudioFrameCollection>())
 {
 }
@@ -112,7 +113,12 @@ void IALLabeler::labelTrack(Track* track)
         IALAudioFrameCollection& frameCollection = tracks.find(leaderID)->second;
         frameCollection.addChannel(std::weak_ptr<WaveTrack>(waveTrack));
 
+        // update collection length
+        frameCollection.updateCollectionLength();
+
         // update the labels
         frameCollection.labelAllFrames(project);
+        // auto history = ;
+        ProjectHistory::Get( project ).PushState(XO("Labeled Track"), XO("Label"));
     }
 }

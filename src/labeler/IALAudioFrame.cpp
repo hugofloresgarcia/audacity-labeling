@@ -13,11 +13,14 @@
 #include <tgmath.h>
 #include <string>
 
+#include "../UndoManager.h"
+#include "../ProjectHistory.h"
+
 #include "../WaveTrack.h"
 #include "../Track.h"
 #include "../WaveClip.h"
 #include "../FileNames.h"
-#include "IALModel.hpp"
+#include "ClassificationModel.h"
 #include "IALLabeler.hpp"
 
 bool trackInTrackList(TrackList& tracklist, std::shared_ptr<LabelTrack> track){
@@ -196,7 +199,6 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 
         // copy channel's samples into buffer
         SampleBuffer outBuffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
-        // SampleBuffer buffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
         conversionClip.GetSamples(outBuffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
         
         torch::Tensor bufTensor = torch::from_blob(outBuffer.ptr(),
@@ -222,7 +224,7 @@ torch::Tensor IALAudioFrame::downmixedAudio(sampleFormat format, int sampleRate)
 
 // constructor. 
 // each audacity track should have a framecollection, which should have a label track for itself.
-IALAudioFrameCollection::IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel)
+IALAudioFrameCollection::IALAudioFrameCollection(ClassificationModel &classifier, std::weak_ptr<WaveTrack> channel)
     : classifier(classifier)
 {
     if (std::shared_ptr<WaveTrack> strongChannel = channel.lock())
@@ -380,6 +382,7 @@ void IALAudioFrameCollection::updateCollectionLength()
         {
             size_t sampleRate = trackSampleRate();
             
+            // append new audio frames for the seconds we're missing
             for (size_t frameIdx = previousFrameCount; frameIdx < maxFrameCount; frameIdx++)
             {
                 sampleCount startSample = frameIdx * sampleRate;
@@ -618,8 +621,6 @@ void IALAudioFrameCollection::labelAllFrames(const AudacityProject& project)
         labelFile.Close();
         wxRemove(labelFileName);
     }
-
-
 }
 
 std::vector<AudacityLabel> IALAudioFrameCollection::gatherAudacityLabels(std::vector<IALAudioFrame> &frameSequence)

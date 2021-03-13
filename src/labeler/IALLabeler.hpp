@@ -15,10 +15,10 @@
 #include "ClientData.h"
 #include "../Track.h"
 #include "IALAudioFrame.hpp"
-#include "IALModel.hpp"
+#include "ClassificationModel.h"
 
 class LabelTrack;
-class IALModel;
+class ClassifierModel;
 
 class IALLabeler
     : public ClientData::Base,
@@ -26,14 +26,14 @@ class IALLabeler
 {
     
 public:
-    IALModel classifier;
+    ClassificationModel classifier;
     
     // Get static instance
     static IALLabeler &Get(AudacityProject &project);
     static const IALLabeler &Get(const AudacityProject &project);
     
     // Constructor
-    IALLabeler(const AudacityProject &project);
+    IALLabeler(AudacityProject &project);
     
     // Disable the copy constructors
     IALLabeler(const IALLabeler &that) = delete;
@@ -47,7 +47,7 @@ public:
     void labelTracks();
     
 private:
-    const AudacityProject &project;
+    AudacityProject &project;
     
     std::map<TrackId, IALAudioFrameCollection> tracks;
 };

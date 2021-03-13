@@ -18,7 +18,7 @@
 class sampleCount;
 class WaveTrack;
 class SampleBuffer;
-class IALModel;
+class ClassificationModel;
 class TrackId;
 
 
@@ -144,9 +144,9 @@ private:
 class IALAudioFrameCollection : std::enable_shared_from_this<IALAudioFrameCollection>
 {
 public:
-    IALModel &classifier;
+    ClassificationModel &classifier;
     
-    IALAudioFrameCollection(IALModel &classifier, std::weak_ptr<WaveTrack> channel);
+    IALAudioFrameCollection(ClassificationModel &classifier, std::weak_ptr<WaveTrack> channel);
         
     size_t numChannels();
     void iterateChannels(std::function<void(WaveTrack &channel, size_t idx, bool *stop)> loopBlock);
@@ -156,6 +156,7 @@ public:
     size_t trackSampleRate();
 
     std::weak_ptr<WaveTrack> getLeaderTrack();
+    void updateCollectionLength();
 
     void setTrackTitle(const std::string& trackTitle);
     std::string mostCommonLabel(const std::vector<AudacityLabel> &labels);
@@ -172,7 +173,6 @@ private:
 
     bool containsChannel(std::weak_ptr<WaveTrack> channel);
     void handleDeletedChannel(size_t deletedChannelIdx);
-    void updateCollectionLength();
 };
 
 #endif /* IALInputAudioFrame_hpp */
