@@ -18,6 +18,7 @@
 #include "WaveTrack.h"
 #include "../WaveClip.h"
 #include "../Track.h"
+#include "../TrackUtilities.h"
 #include "../LabelTrack.h"
 #include "../ViewInfo.h"
 
@@ -74,17 +75,39 @@ IALLabeler::IALLabeler(AudacityProject &project)
 void IALLabeler::labelTracks()
 {   
     // try{
-        TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
-        const auto& playableTracks = tracklist.Any<PlayableTrack>();
+    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+    const auto& playableTracks = tracklist.Any<PlayableTrack>();
 
-        for (Track *track : playableTracks ){ 
-            labelTrack(track);
-        }
-    // }
-    // catch (...) {
-    //     std::cout << "an unknown error occured while labeling" << "\n";
-    // }
-    
+    for (Track *track : playableTracks ){ 
+        labelTrack(track);
+    }
+}
+
+// because we're only allowed to move the tracks either once down or up, 
+/// or all the way to the bottom or top, we'll start from the 
+// topmost track (iterating through  all playable tracks) 
+void IALLabeler::arrangeTracks(){
+    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+    const auto& playableTracks = tracklist.Any<PlayableTrack>();
+
+    for (auto framePair: tracks){
+        TrackId leaderId = framePair.first;
+        IALAudioFrameCollection& frameCollection = framePair.second;
+
+        Track* leader = tracklist.FindById(leaderId);
+        TrackId labelTrackId = frameCollection.labelTrack->GetId();
+        Track* labelTrack = tracklist.FindById(labelTrackId);
+
+        // start with the leader, move all the way to the bottom
+        TrackUtilities::DoMoveTrack(project, leader, TrackUtilities::MoveChoice::OnMoveBottomID);
+
+        // then move the label track all the to the bottom
+        TrackUtilities::DoMoveTrack(project, labelTrack, TrackUtilities::MoveChoice::OnMoveBottomID);
+
+        // auto history = ;
+        ProjectHistory::Get( project ).PushState(XO("Moved Labeled Track Pair"), XO("Move Labeled"));
+
+    }
 }
 
 void IALLabeler::labelTrack(Track* track)
@@ -118,6 +141,9 @@ void IALLabeler::labelTrack(Track* track)
 
         // update the labels
         frameCollection.labelAllFrames(project);
+
+        // arrange the tracks
+        arrangeTracks();
         // auto history = ;
         ProjectHistory::Get( project ).PushState(XO("Labeled Track"), XO("Label"));
     }

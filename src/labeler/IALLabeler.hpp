@@ -48,6 +48,8 @@ public:
     
 private:
     AudacityProject &project;
+    // assumes tracks have already been labeled
+    void arrangeTracks();
     
     std::map<TrackId, IALAudioFrameCollection> tracks;
 };
