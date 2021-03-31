@@ -131,6 +131,7 @@ enum {
 
    //IAL: Labeler IDs
    IALLabelerID,
+   IALSeparatorID,
 
    ChannelMenuID,
 
@@ -522,6 +523,7 @@ struct WaveTrackMenuTable
 
    // IAL Labeler
    void OnIALLabeler(wxCommandEvent & event);
+   void OnIALSeparator(wxCommandEvent & event);
 
    void OnMultiView(wxCommandEvent & event);
    void OnSetDisplay(wxCommandEvent & event);
@@ -653,6 +655,11 @@ BEGIN_POPUP_MENU(WaveTrackMenuTable)
         []( PopupMenuHandler &handler, wxMenu &menu, int id ){
            menu.Enable( id, true );
         });
+      AppendItem("Separate Track", IALSeparatorID, XXO("&Separate Track"),
+        POPUP_MENU_FN( OnIALSeparator ),
+        []( PopupMenuHandler &handler, wxMenu &menu, int id ){
+           menu.Enable( id, true );
+        });
    EndSection();
    BeginSection( "Channels" );
    // If these are enabled again, choose a hot key for Mono that does not conflict
@@ -738,17 +745,35 @@ void WaveTrackMenuTable::OnIALLabeler(wxCommandEvent & event)
 {
    WaveTrack *const pTrack = static_cast<WaveTrack*>(mpData->pTrack);
    AudacityProject *const project = &mpData->project;
-   ProjectHistory::Get( *project ).PushState(
-      XO("Split Stereo to Mono '%s'").Format( pTrack->GetName() ),
-      XO("Split to Mono"));
 
    using namespace RefreshCode;
    mpData->result = RefreshAll | FixScrollbars;
 
-   IALLabeler::Get(mpData->project).labelTrack(pTrack);
+   // we DO want to rearrange the tracks here
+   IALLabeler::Get(mpData->project).labelTrack(pTrack, true);
 
    TranslatableString longDesc = XO("Labeled '%s' Track");
    TranslatableString shortDesc = XO("Label '%s' Track");
+
+   longDesc.Format(pTrack->GetName());
+
+   ProjectHistory::Get( mpData->project ).PushState(longDesc, shortDesc);
+}
+
+// IAL Labeler
+void WaveTrackMenuTable::OnIALSeparator(wxCommandEvent & event)
+{
+   WaveTrack *const pTrack = static_cast<WaveTrack*>(mpData->pTrack);
+   AudacityProject *const project = &mpData->project;
+
+   using namespace RefreshCode;
+   mpData->result = RefreshAll | FixScrollbars;
+
+   // we DO want to rearrange the tracks here
+   IALLabeler::Get(mpData->project).separateTrack(pTrack);
+
+   TranslatableString longDesc = XO("Separated '%s' Track");
+   TranslatableString shortDesc = XO("Separated '%s' Track");
 
    longDesc.Format(pTrack->GetName());
 

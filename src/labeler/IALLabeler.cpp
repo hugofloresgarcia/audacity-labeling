@@ -21,6 +21,7 @@
 #include "../TrackUtilities.h"
 #include "../LabelTrack.h"
 #include "../ViewInfo.h"
+#include "../SampleFormat.h"
 
 
 #pragma mark ClientData Initialization
@@ -79,38 +80,46 @@ void IALLabeler::labelTracks()
     const auto& playableTracks = tracklist.Any<PlayableTrack>();
 
     for (Track *track : playableTracks ){ 
-        labelTrack(track);
+        // we want to arrange the tracks until after we're done iterating through them
+        labelTrack(track, false);
     }
+    // arrange the tracks
+    arrangeTracks();
 }
 
 // because we're only allowed to move the tracks either once down or up, 
 /// or all the way to the bottom or top, we'll start from the 
 // topmost track (iterating through  all playable tracks) 
 void IALLabeler::arrangeTracks(){
+    // skip for now
+    return; 
+
     TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
     const auto& playableTracks = tracklist.Any<PlayableTrack>();
 
-    for (auto framePair: tracks){
-        TrackId leaderId = framePair.first;
-        IALAudioFrameCollection& frameCollection = framePair.second;
+    if (tracklist.size() > 2){
+        for (auto framePair: tracks){
+            TrackId leaderId = framePair.first;
+            IALAudioFrameCollection& frameCollection = framePair.second;
 
-        Track* leader = tracklist.FindById(leaderId);
-        TrackId labelTrackId = frameCollection.labelTrack->GetId();
-        Track* labelTrack = tracklist.FindById(labelTrackId);
+            Track* leader = tracklist.FindById(leaderId);
+            TrackId labelTrackId = frameCollection.labelTrack->GetId();
+            Track* labelTrack = tracklist.FindById(labelTrackId);
 
-        // start with the leader, move all the way to the bottom
-        TrackUtilities::DoMoveTrack(project, leader, TrackUtilities::MoveChoice::OnMoveBottomID);
+            // start with the leader, move all the way to the bottom
+            TrackUtilities::DoMoveTrack(project, leader, TrackUtilities::MoveChoice::OnMoveBottomID);
 
-        // then move the label track all the to the bottom
-        TrackUtilities::DoMoveTrack(project, labelTrack, TrackUtilities::MoveChoice::OnMoveBottomID);
+            // then move the label track all the to the bottom
+            TrackUtilities::DoMoveTrack(project, labelTrack, TrackUtilities::MoveChoice::OnMoveBottomID);
 
-        // auto history = ;
-        ProjectHistory::Get( project ).PushState(XO("Moved Labeled Track Pair"), XO("Move Labeled"));
+            // auto history = ;
+            ProjectHistory::Get( project ).PushState(XO("Moved Labeled Track Pair"), XO("Move Labeled"));
 
-    }
+        }
+    } 
 }
 
-void IALLabeler::labelTrack(Track* track)
+void IALLabeler::labelTrack(Track* track, bool arrange)
 {   
     TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
     const auto& playableTracks = tracklist.Any<PlayableTrack>();
@@ -142,9 +151,117 @@ void IALLabeler::labelTrack(Track* track)
         // update the labels
         frameCollection.labelAllFrames(project);
 
-        // arrange the tracks
-        arrangeTracks();
         // auto history = ;
         ProjectHistory::Get( project ).PushState(XO("Labeled Track"), XO("Label"));
     }
+
+    if (arrange){
+        arrangeTracks();
+    }
+}
+
+void IALLabeler::separateTrack(Track* track)
+{
+    TrackList &tracklist = TrackList::Get(const_cast<AudacityProject&>(project));
+    const auto& playableTracks = tracklist.Any<PlayableTrack>();
+
+    static const std::string kSeparationModelPath = wxFileName(FileNames::ResourcesDir(), wxT("separation-model.pt")).GetFullPath().ToStdString();
+    static const std::string kSeparationInstrumentListPath = wxFileName(FileNames::ResourcesDir(), wxT("separation-instruments.txt")).GetFullPath().ToStdString();
+
+    int sampleRate = 8000;
+    DeepModel separationModel(kSeparationModelPath, kSeparationInstrumentListPath);
+    separationModel.setChunkLen(8000);
+
+    if (dynamic_cast<WaveTrack *>(track) != nullptr)
+    {
+        std::shared_ptr<WaveTrack> waveTrack = std::dynamic_pointer_cast<WaveTrack>(track->SharedPointer());
+
+        Track *leader = *tracklist.FindLeader(track);
+        TrackId leaderID = leader->GetId();
+        std::shared_ptr<WaveTrack> leaderTrack = std::dynamic_pointer_cast<WaveTrack>(leader->SharedPointer());
+        
+        sampleFormat originalFormat = leaderTrack->GetSampleFormat();
+        double originalSampleRate = leaderTrack->GetRate();
+        size_t actualLength = leaderTrack->TimeToLongSamples(leaderTrack->GetEndTime()).as_size_t();
+        
+        // SampleBuffer channelBuffer = SampleBuffer(desiredLength, format);
+        // AudacityProject *project = leaderTrack->GetOwner()->GetOwner();
+        SampleBlockFactoryPtr sbFactory = WaveTrackFactory::Get(project).GetSampleBlockFactory();
+
+        // copy channel's samples into buffer
+        SampleBuffer buffer(actualLength, originalFormat);
+        // fill up the buffer
+        leaderTrack->Get(buffer.ptr(), originalFormat, 0, actualLength);
+
+        // make a separate clip where we will do the necessary conversions 
+        WaveClip conversionClip(sbFactory, originalFormat, leaderTrack->GetRate(), leaderTrack->GetWaveColorIndex());
+
+        // fill the clip with our buffer
+        conversionClip.Append(buffer.ptr(), originalFormat, actualLength);
+        conversionClip.Flush();
+        // conversionClip.SetSamples(buffer.ptr(), originalFormat, start, actualLength);
+
+        // do the conversions
+        conversionClip.ConvertToSampleFormat(floatSample);
+        conversionClip.Resample(sampleRate);
+
+        // copy channel's samples into buffer
+        SampleBuffer outBuffer(conversionClip.GetNumSamples().as_size_t(), floatSample);
+        conversionClip.GetSamples(outBuffer.ptr(), floatSample, conversionClip.GetStartSample(), conversionClip.GetNumSamples().as_size_t());
+        
+        torch::Tensor bufTensor = torch::from_blob(outBuffer.ptr(),
+                                                       conversionClip.GetNumSamples().as_size_t(),
+                                                       torch::TensorOptions().dtype(torch::kFloat32));
+
+        torch::Tensor channelTensor = bufTensor.clone();
+
+        buffer.Free();
+        
+        // expand channel and batch dimes
+        channelTensor = separationModel.padAndReshape(channelTensor.view({1, 1, -1}));
+        auto sz = channelTensor.sizes();
+
+        torch::Tensor output = separationModel.modelForward(channelTensor);
+        
+        // this could be a risky operation?
+        // view as two channels of separate sources
+        output = output.view({1, 2, -1});
+        torch::Tensor source = output[0][0];
+        torch::Tensor source2 = output[0][1];
+
+        for (auto source: std::vector<torch::Tensor>{source, source2})
+        {
+            source = source.clone() / 10000;
+            auto sourceLength = source.sizes()[0];
+            SampleBuffer sourceBuffer(source.sizes()[0], floatSample);
+
+            // sourceBuffer()
+            auto sourcePtr = source.accessor<float, 1>();
+
+            // ooo copying by hand
+            // CopySamples((samplePtr)source.to(torch::kFloat32).data_ptr<float>(), 
+            //               floatSample, sourceBuffer.ptr(), floatSample, sourceLength)
+            // float* s = source.contiguous().to(torch::kFloat32).data_ptr<float>();
+            // float* d = (float*)sourceBuffer.ptr();
+            // for (int i = 0; i < sourceLength; i++, d += 1, s += 1)
+            //     *d = *s;
+
+            // CopySamples(source.data_ptr<float>(), floatSample, sourceBuffer.ptr(), floatSample, sourceLength);
+            
+            // make a separate clip where we will do the necessary conversions 
+            auto newTrack = std::make_shared<WaveTrack>(sbFactory, floatSample, 8000);
+
+            // fill the clip with our buffer
+            // newTrack->Append(sourceBuffer.ptr(), floatSample, sourceLength);
+            newTrack->Append((samplePtr)source.to(torch::kFloat32).data_ptr<float>(),
+                              floatSample, sourceLength);
+            newTrack->Flush();
+
+            tracklist.Add(newTrack);
+            // auto history = ;
+        }
+
+        ProjectHistory::Get( project ).PushState(XO("Separated Track"), XO("SourceSep"));
+    }
+
 }

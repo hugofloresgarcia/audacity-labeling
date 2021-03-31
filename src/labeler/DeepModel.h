@@ -10,7 +10,7 @@
 class DeepModel {
    torch::jit::script::Module loadModel(const std::string &filepath);
    
-   const int chunkLen = 48000;
+   int chunkLen = 48000;
 
    public:
       
@@ -20,6 +20,7 @@ class DeepModel {
 
       const std::vector<std::string> &getClasslist() {return classes;}
       const int getChunkLen() {return chunkLen;}
+      void setChunkLen(int newLen) {chunkLen = newLen;}
 
       torch::Tensor downmix(const torch::Tensor audioBatch);
       torch::Tensor padAndReshape(const torch::Tensor audio);

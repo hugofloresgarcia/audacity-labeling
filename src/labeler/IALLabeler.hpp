@@ -43,8 +43,10 @@ public:
     IALLabeler(IALLabeler &&that) = delete;
     IALLabeler& operator= (IALLabeler&&) = delete;
     
-    void labelTrack(Track* track);
+    void labelTrack(Track* track, bool arrange);
     void labelTracks();
+
+    void separateTrack(Track* track);
     
 private:
     AudacityProject &project;
