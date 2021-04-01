@@ -1,5 +1,8 @@
 ## audacity labeling 
 
+## look at the labeler source code
+Most of the labeler source code is in /src/labeler. More documentation coming soon.
+
 ## building audacity (with labeler)
 I've only tested this on MacOS Catalina (10.15.3)
 
